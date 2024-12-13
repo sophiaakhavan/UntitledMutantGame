@@ -5,14 +5,14 @@ using UnityEngine;
 public abstract class EnemyAI : MonoBehaviour
 {
     [Header("General Settings")]
-    public float roamSpeed = 2f;
-    public float chaseSpeed = 4f;
-    public float detectionRadius = 10f;
-    public Transform[] patrolPoints;
+    [SerializeField] private float roamSpeed = 2f;
+    [SerializeField] private float chaseSpeed = 4f;
+    [SerializeField] private float detectionRadius = 10f;
+    [SerializeField] private Transform[] patrolPoints;
 
     [Header("Weapon Settings")]
-    public GameObject targetWeaponObject;
-    public Transform weaponGrabPoint;
+    [SerializeField] private GameObject targetWeaponObject;
+    [SerializeField] private Transform weaponGrabPoint;
 
     protected Transform player;
     protected bool hasWeapon = false;
@@ -75,24 +75,27 @@ public abstract class EnemyAI : MonoBehaviour
     {
         float distance = Vector3.Distance(transform.position, player.position);
         int rangeVal = targetWeapon.DistanceInRange(distance);
+
         if (targetWeapon != null && rangeVal == 0)
         {
             targetWeapon.Use(player);
         }
         else
         {
+            // Prevent movement if currently casting weapon
+            if (targetWeapon != null && targetWeapon.IsCasting)
+            {
+                return;
+            }
+
             if (rangeVal == 1)
             {
-                //Prevent movement if currently casting weapon
-                if(targetWeapon != null && targetWeapon.IsCasting)
-                {
-                    return;
-                }
                 MoveTowards(player.position, chaseSpeed);
             }
-            else
+            else if(rangeVal == -1) // Too close
             {
-                //TODO: move away from
+                // Step backward from player
+                MoveAwayFrom(player.position, chaseSpeed);
             }
         }
     }
@@ -126,7 +129,24 @@ public abstract class EnemyAI : MonoBehaviour
         Vector3 direction = (target - transform.position).normalized;
         transform.position += direction * speed * Time.deltaTime;
 
-        // Optional: Face the direction of movement
+        // Face the direction of movement
+        transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
+    }
+
+    protected virtual void MoveAwayFrom(Vector3 target, float speed)
+    {
+        // Calculate the direction away from the target
+        Vector3 directionAwayFromTarget = (transform.position - target).normalized;
+
+        // Calculate the new position, moving twice the current distance away
+        float distance = Vector3.Distance(transform.position, target);
+        Vector3 newTargetPosition = transform.position + directionAwayFromTarget * distance * 2f;
+
+        // Move the enemy to the new position
+        Vector3 moveDirection = (newTargetPosition - transform.position).normalized;
+        transform.position += moveDirection * speed * Time.deltaTime;
+
+        // Ensure the enemy is still facing the target
         transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
     }
 }

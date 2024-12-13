@@ -5,19 +5,41 @@ using UnityEngine;
 public class ButterflyNet : Weapon
 {
     [Header("Casting Settings")]
-    public float castTime = 2f; // Time to cast the net
-    public Transform handle;
-    public Transform net;
-    public float rotationAngle = 0f; // Tracks the amount of rotation
-    public float rotationSpeed = 60f; // Degrees per second
-    public float maxRotationAngle = 170f; // Maximum allowed rotation
+    [SerializeField] private float castTime = 2f; // Time to cast the net
+    [SerializeField] private Transform handle;
+    [SerializeField] private Transform net;
+    [SerializeField] private float rotationAngle = 0f; // Tracks the amount of rotation
+    [SerializeField] private float rotationSpeed = 60f; // Degrees per second
+    [SerializeField] private float maxRotationAngle = 170f; // Maximum allowed rotation
+    [SerializeField] private Transform handlePivot; // Pivot to rotate handle around
 
     public override void Use(Transform target)
     {
-        if (!IsCasting) // Prevent starting a new cast if already casting
+        if (IsCasting) // Prevent starting a new cast if already casting
         {
-            StartCoroutine(CastNet(target));
+            return;
         }
+        StartCoroutine(CastNet(target));
+    }
+
+    public override void Equip(Transform grabPoint)
+    {
+        base.Equip(grabPoint);
+
+        // Adjust position of handle
+        if (handle == null)
+        {
+            Debug.LogError("Handle reference is missing on ButterflyNet!");
+            return;
+        }
+
+        // Calculate the offset needed to align the bottom of the handle to the grab point
+        float handleLength = handle.transform.localScale.y;
+        Vector3 offset = new Vector3(0, handleLength / 2, 0);
+
+        // Adjust the local position of the net to align correctly
+        transform.localPosition += offset;
+
     }
 
     /// <summary>
@@ -50,21 +72,22 @@ public class ButterflyNet : Weapon
     private (float minRange, float maxRange) CalculateRanges()
     {
         SphereCollider netCollider = net.GetComponent<SphereCollider>();
+        CapsuleCollider handleCollider = handle.GetComponent<CapsuleCollider>();
 
-        if (netCollider != null && handle != null)
+        if (netCollider == null || handleCollider == null)
         {
-            // Calculate actual handle length
-            float handleLength = handle.transform.lossyScale.y;
-
-            // Calculate actual net diameter
-            float netDiameter = (netCollider.radius * Mathf.Max(netCollider.transform.lossyScale.x, netCollider.transform.lossyScale.y, netCollider.transform.lossyScale.z))*2;
-
-            // Return both ranges
-            return (handleLength, handleLength + netDiameter);
+            Debug.LogWarning("One or more colliders are missing!");
+            return (0f, 0f); // Default to 0 if missing components
         }
+        // TODO: Calculate actual handle length
+        //float handleLength = Mathf.Max(handleCollider.bounds.size.x, handleCollider.bounds.size.y, handleCollider.bounds.size.z);
+        float handleLength = Mathf.Max(handleCollider.transform.lossyScale.x, handleCollider.transform.lossyScale.y, handleCollider.transform.lossyScale.z);
 
-        Debug.LogWarning("One or more colliders are missing!");
-        return (0f, 0f); // Default to 0 if missing components
+        // Calculate actual net diameter
+        float netDiameter = (netCollider.radius * Mathf.Max(netCollider.transform.lossyScale.x, netCollider.transform.lossyScale.y, netCollider.transform.lossyScale.z))*2;
+
+        // Return both ranges
+        return (handleLength, handleLength + netDiameter);
     }
 
     /// <summary>
@@ -80,7 +103,14 @@ public class ButterflyNet : Weapon
         // Wait for the casting time
         yield return new WaitForSeconds(castTime);
 
+        rotationAngle = 0f; // Reset rotation angle
         Quaternion initialRotation = transform.localRotation;
+        Vector3 originalPosition = transform.position;
+
+        // Align the net to face the player before casting
+        Vector3 directionToPlayer = (target.position - transform.position).normalized;
+        Quaternion lookRotation = Quaternion.LookRotation(directionToPlayer, Vector3.up);
+        transform.rotation = lookRotation; // Snap rotation to face the player
 
         // Enable collision detection during casting
         Collider netCollider = net.GetComponent<Collider>();
@@ -94,16 +124,17 @@ public class ButterflyNet : Weapon
         {
             // Rotate weapon forward
             float step = rotationSpeed * Time.deltaTime;
-            transform.Rotate(Vector3.right, step, Space.Self);
+            transform.RotateAround(handlePivot.position, transform.right, step);
             rotationAngle += step;
 
             yield return null; // Wait until the next frame
 
         }
 
-        // If no valid hit or rotation exceeded the limit, reset rotation
+        // If no valid hit or rotation exceeded the limit, reset rotation and position
         Debug.Log("Butterfly Net missed. Resetting...");
         transform.localRotation = initialRotation;
+        transform.position = originalPosition;
 
         IsCasting = false;
     }
