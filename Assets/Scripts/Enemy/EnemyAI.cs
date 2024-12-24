@@ -5,8 +5,8 @@ using UnityEngine;
 public abstract class EnemyAI : MonoBehaviour
 {
     [Header("General Settings")]
-    [SerializeField] private float roamSpeed = 2f;
-    [SerializeField] private float chaseSpeed = 4f;
+    [SerializeField] private float roamSpeed = 4f;
+    [SerializeField] private float chaseSpeed = 6f;
     [SerializeField] private float detectionRadius = 10f;
     [SerializeField] private Transform[] patrolPoints;
 
@@ -82,11 +82,11 @@ public abstract class EnemyAI : MonoBehaviour
         }
         else
         {
-            // Prevent movement if currently casting weapon
-            if (targetWeapon != null && targetWeapon.IsCasting)
-            {
-                return;
-            }
+            //// Prevent movement if currently casting weapon
+            //if (targetWeapon != null && targetWeapon.IsCasting)
+            //{
+            //    return;
+            //}
 
             if (rangeVal == 1)
             {
