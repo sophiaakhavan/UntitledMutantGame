@@ -2,16 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public abstract class Weapon : MonoBehaviour
 {
     public bool IsCasting { get; set; } = false;
-    [SerializeField] private GameObject minDist;
-    [SerializeField] private GameObject maxDist;
-    [SerializeField] private GameObject GrabPoint; // Weapon's grab point
+    [SerializeField] protected Transform minDist;
+    [SerializeField] protected Transform maxDist;
+    [SerializeField] private Transform GrabPoint; // Weapon's grab point
     private Animator animator;
 
-    private void Start()
+    protected void Start()
     {
         animator = GetComponent<Animator>();
     }
@@ -27,7 +28,7 @@ public abstract class Weapon : MonoBehaviour
             Debug.LogError("Weapon GrabPoint is not assigned!");
             return;
         }
-        Vector3 grabPointOffset = GrabPoint.transform.position - transform.position;
+        Vector3 grabPointOffset = GrabPoint.position - transform.position;
         transform.position = enemyGrabPoint.position - grabPointOffset;
         transform.rotation = Quaternion.LookRotation(enemyGrabPoint.forward, enemyGrabPoint.up);
         transform.SetParent(enemyGrabPoint);
@@ -41,14 +42,14 @@ public abstract class Weapon : MonoBehaviour
     /// </summary>
     /// <param name="distance"></param>
     /// <returns></returns>
-    public int DistanceInRange(float distance)
+    public virtual int DistanceInRange(float distance)
     {
         if(minDist == null || maxDist == null)
         {
             Debug.LogError("Min/Max distances not assigned!");
         }
-        float minDistance = Vector3.Distance(transform.position, minDist.transform.position);
-        float maxDistance = Vector3.Distance(transform.position, maxDist.transform.position);
+        float minDistance = Vector3.Distance(transform.position, minDist.position);
+        float maxDistance = Vector3.Distance(transform.position, maxDist.position);
 
         if (distance <= maxDistance)
         {
@@ -66,13 +67,13 @@ public abstract class Weapon : MonoBehaviour
     /// Use the weapon against a target.
     /// </summary>
     /// <param name="target">The target to attack.</param>
-    public virtual void Use(Transform target)
+    public virtual void Use()
     {
         if (IsCasting) // Prevent starting a new cast if already casting
         {
             return;
         }
-        CastWeapon(target);
+        CastWeapon();
     }
 
     /// <summary>
@@ -80,7 +81,7 @@ public abstract class Weapon : MonoBehaviour
     /// </summary>
     /// <param name="target"></param>
     /// <returns></returns>
-    private void CastWeapon(Transform target)
+    protected virtual void CastWeapon()
     {
         animator.SetTrigger("Base_Attack");
     }

@@ -195,9 +195,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e979b866c82b3704d89f629828c73bad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minDist: {fileID: 1886999355742410565}
-  maxDist: {fileID: 1912057342070023505}
-  GrabPoint: {fileID: 4042088627909858334}
+  minDist: {fileID: 1122914039356664600}
+  maxDist: {fileID: 8894737453026810453}
+  GrabPoint: {fileID: 3211279564746965287}
 --- !u!54 &7441022636593093808
 Rigidbody:
   m_ObjectHideFlags: 0

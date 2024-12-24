@@ -12,7 +12,7 @@ public abstract class EnemyAI : MonoBehaviour
 
     [Header("Weapon Settings")]
     [SerializeField] private GameObject targetWeaponObject;
-    [SerializeField] private Transform weaponGrabPoint;
+    [SerializeField] private Transform grabPoint;
 
     protected Transform player;
     protected bool hasWeapon = false;
@@ -73,12 +73,27 @@ public abstract class EnemyAI : MonoBehaviour
 
     protected virtual void HandleChaseBehavior()
     {
+        if (player == null)
+        {
+            Debug.Log("Player not found!");
+            return;
+        }
+
         float distance = Vector3.Distance(transform.position, player.position);
         int rangeVal = targetWeapon.DistanceInRange(distance);
 
+        // Rotate grab point's forward about the y axis
+        if(grabPoint != null)
+        {
+            Vector3 currGrabDirection = grabPoint.forward;
+            Vector3 directionToPlayer = (player.position - grabPoint.position).normalized;
+            grabPoint.forward = new Vector3(directionToPlayer.x, currGrabDirection.y, directionToPlayer.z);
+        }
+        
+
         if (targetWeapon != null && rangeVal == 0)
         {
-            targetWeapon.Use(player);
+            targetWeapon.Use();
         }
         else
         {
@@ -110,7 +125,7 @@ public abstract class EnemyAI : MonoBehaviour
         if (targetWeapon != null)
         {
             hasWeapon = true;
-            targetWeapon.Equip(weaponGrabPoint);
+            targetWeapon.Equip(grabPoint);
         }
     }
 
