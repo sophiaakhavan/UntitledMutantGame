@@ -9,7 +9,7 @@ public abstract class Weapon : MonoBehaviour
     public bool IsCasting { get; set; } = false;
     [SerializeField] protected Transform minDist;
     [SerializeField] protected Transform maxDist;
-    [SerializeField] private Transform GrabPoint; // Weapon's grab point
+    [SerializeField] private Transform grabPoint; // Weapon's grab point
     private Animator animator;
 
     protected void Start()
@@ -23,12 +23,12 @@ public abstract class Weapon : MonoBehaviour
     /// <param name="grabPoint">The point where the weapon is attached.</param>
     public virtual void Equip(Transform enemyGrabPoint)
     {
-        if (GrabPoint == null)
+        if (grabPoint == null)
         {
             Debug.LogError("Weapon GrabPoint is not assigned!");
             return;
         }
-        Vector3 grabPointOffset = GrabPoint.position - transform.position;
+        Vector3 grabPointOffset = grabPoint.position - transform.position;
         transform.position = enemyGrabPoint.position - grabPointOffset;
         transform.rotation = Quaternion.LookRotation(enemyGrabPoint.forward, enemyGrabPoint.up);
         transform.SetParent(enemyGrabPoint);

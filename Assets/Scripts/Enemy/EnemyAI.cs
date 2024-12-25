@@ -87,7 +87,8 @@ public abstract class EnemyAI : MonoBehaviour
         {
             Vector3 currGrabDirection = grabPoint.forward;
             Vector3 directionToPlayer = (player.position - grabPoint.position).normalized;
-            grabPoint.forward = new Vector3(directionToPlayer.x, currGrabDirection.y, directionToPlayer.z);
+            //grabPoint.forward = new Vector3(directionToPlayer.x, currGrabDirection.y, directionToPlayer.z);
+            grabPoint.forward = directionToPlayer;
         }
         
 

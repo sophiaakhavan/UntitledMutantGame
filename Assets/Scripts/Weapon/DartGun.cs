@@ -22,13 +22,13 @@ public class DartGun : ProjectileWeapon
     /// </summary>
     public void ShootDart()
     {
-        GameObject dartInstance = (GameObject)Instantiate(dartPrefab, projectileSpawnPoint.position, transform.rotation);
+        //GameObject dartInstance = (GameObject)Instantiate(dartPrefab, projectileSpawnPoint.position, transform.rotation);
 
-        Rigidbody rb = dartInstance.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.velocity = projectileSpawnPoint.forward * dartSpeed;
-        }
+        //Rigidbody rb = dartInstance.GetComponent<Rigidbody>();
+        //if (rb != null)
+        //{
+        //    rb.velocity = projectileSpawnPoint.forward * dartSpeed;
+        //}
 
         Debug.Log("Dart fired!");
     }
