@@ -511,11 +511,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e06f0f8a26749f745a04d1df21dc490a, type: 3}
---- !u!1 &482769807 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3639398531328841336, guid: e06f0f8a26749f745a04d1df21dc490a, type: 3}
-  m_PrefabInstance: {fileID: 482769806}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &609799645
 GameObject:
   m_ObjectHideFlags: 0
@@ -1105,6 +1100,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1111428273 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2568382495882991686, guid: d53beb0b4b702e24fb43c3b2056d7802, type: 3}
+  m_PrefabInstance: {fileID: 671389870}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1156468374
 GameObject:
   m_ObjectHideFlags: 0
@@ -2613,7 +2613,7 @@ PrefabInstance:
     - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
       propertyPath: targetWeaponObject
       value: 
-      objectReference: {fileID: 482769807}
+      objectReference: {fileID: 1111428273}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
