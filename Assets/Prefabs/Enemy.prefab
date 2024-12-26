@@ -52,7 +52,7 @@ MonoBehaviour:
   detectionRadius: 10
   patrolPoints: []
   targetWeaponObject: {fileID: 0}
-  grabPoint: {fileID: 7906156153580981513}
+  enemyGrabPoint: {fileID: 7906156153580981513}
 --- !u!54 &789129528599550282
 Rigidbody:
   m_ObjectHideFlags: 0

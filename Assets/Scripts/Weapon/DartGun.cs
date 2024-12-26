@@ -22,7 +22,9 @@ public class DartGun : ProjectileWeapon
     /// </summary>
     public void ShootDart()
     {
-        GameObject dartInstance = (GameObject)Instantiate(dartPrefab, projectileSpawnPoint.position, transform.rotation);
+        Quaternion gunRotation = Quaternion.LookRotation(projectileSpawnPoint.forward);
+        // Create and shoot dart from the projectile spawn point in the direction that the gun is facing
+        GameObject dartInstance = (GameObject)Instantiate(dartPrefab, projectileSpawnPoint.position, gunRotation);
 
         Rigidbody rb = dartInstance.GetComponent<Rigidbody>();
         if (rb != null)

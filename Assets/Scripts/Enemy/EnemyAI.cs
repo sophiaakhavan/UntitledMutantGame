@@ -12,7 +12,7 @@ public abstract class EnemyAI : MonoBehaviour
 
     [Header("Weapon Settings")]
     [SerializeField] private GameObject targetWeaponObject;
-    [SerializeField] private Transform grabPoint;
+    [SerializeField] private Transform enemyGrabPoint;
 
     protected Transform player;
     protected bool hasWeapon = false;
@@ -71,6 +71,11 @@ public abstract class EnemyAI : MonoBehaviour
         return Vector3.Distance(transform.position, player.position) <= detectionRadius;
     }
 
+    /// <summary>
+    /// Once the enemy has grabbed a weapon, this function handles behavior for chasing the player,
+    /// using the weapon when the player is within range, or stepping backwards if the player is too close.
+    /// Also ensures that the enemy and its equipped weapon are properly facing the player.
+    /// </summary>
     protected virtual void HandleChaseBehavior()
     {
         if (player == null)
@@ -79,40 +84,34 @@ public abstract class EnemyAI : MonoBehaviour
             return;
         }
 
+        if(targetWeapon == null)
+        {
+            Debug.Log("Target weapon not specified!");
+            return;
+        }
+
+        // Rotate enemy about the y axis to ensure that it is facing the player
+        Vector3 enemyToPlayer = (player.position - transform.position).normalized;
+        transform.forward = new Vector3(enemyToPlayer.x, transform.forward.y, enemyToPlayer.z);
+
+        // Point the weapon at the player
+        Vector3 weaponToPlayer = (player.position - targetWeapon.transform.position).normalized;
+        enemyGrabPoint.forward = weaponToPlayer;
+
         float distance = Vector3.Distance(transform.position, player.position);
         int rangeVal = targetWeapon.DistanceInRange(distance);
 
-        // Rotate grab point's forward about the y axis
-        if(grabPoint != null)
+        switch(rangeVal)
         {
-            Vector3 currGrabDirection = grabPoint.forward;
-            Vector3 directionToPlayer = (player.position - grabPoint.position).normalized;
-            //grabPoint.forward = new Vector3(directionToPlayer.x, currGrabDirection.y, directionToPlayer.z);
-            grabPoint.forward = directionToPlayer;
-        }
-        
-
-        if (targetWeapon != null && rangeVal == 0)
-        {
-            targetWeapon.Use();
-        }
-        else
-        {
-            //// Prevent movement if currently casting weapon
-            //if (targetWeapon != null && targetWeapon.IsCasting)
-            //{
-            //    return;
-            //}
-
-            if (rangeVal == 1)
-            {
+            case 0: // Player within range, use weapon
+                targetWeapon.Use();
+                break;
+            case 1: // Player too far, move towards player
                 MoveTowards(player.position, chaseSpeed);
-            }
-            else if(rangeVal == -1) // Too close
-            {
-                // Step backward from player
+                break;
+            case -1: // Player too close, Step backward from player
                 MoveAwayFrom(player.position, chaseSpeed);
-            }
+                break;
         }
     }
 
@@ -126,7 +125,7 @@ public abstract class EnemyAI : MonoBehaviour
         if (targetWeapon != null)
         {
             hasWeapon = true;
-            targetWeapon.Equip(grabPoint);
+            targetWeapon.Equip(enemyGrabPoint);
         }
     }
 
@@ -149,6 +148,11 @@ public abstract class EnemyAI : MonoBehaviour
         transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
     }
 
+    /// <summary>
+    /// TODO: make this work properly
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="speed"></param>
     protected virtual void MoveAwayFrom(Vector3 target, float speed)
     {
         // Calculate the direction away from the target
