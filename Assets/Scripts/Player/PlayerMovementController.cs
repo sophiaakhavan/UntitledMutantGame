@@ -92,6 +92,7 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
+            flyDirection = new Vector3(0f, 0f, 0f);
             HandleWalking();
             isFlying = false;
             isGliding = false;
@@ -100,13 +101,21 @@ public class PlayerMovementController : MonoBehaviour
 
     private void TrackLiftInput()
     {
-        // Handle the start of JumpInput
-        if (inputHandler.LiftInput && spacePressTime == 0f)
+        if (inputHandler.LiftInput)
         {
-            spacePressTime = Time.time; // Start timing when space is pressed
+            if (spacePressTime == 0f)
+            {
+                spacePressTime = Time.time; // Start timing when space is pressed
+            }
+
+            // Check if input exceeds the flap threshold for gliding
+            if (!isGrounded && (Time.time - spacePressTime) > flapThreshold)
+            {
+                isGliding = true; // Enable gliding
+            }
         }
 
-        // Handle JumpInput release
+        // Handle LiftInput release
         if (!inputHandler.LiftInput && spacePressTime > 0f)
         {
             float pressDuration = Time.time - spacePressTime;
@@ -115,7 +124,7 @@ public class PlayerMovementController : MonoBehaviour
             if (isGrounded)
             {
                 isFlying = true;
-                Flap(); // Ground jump -- TODO: separate function Jump()?
+                Flap();
             }
             else
             {
@@ -125,7 +134,7 @@ public class PlayerMovementController : MonoBehaviour
                 }
                 else
                 {
-                    isGliding = true; // Enable gliding for held press
+                    isGliding = false; // If player lets go, no longer gliding
                 }
             }
         }
@@ -181,10 +190,9 @@ public class PlayerMovementController : MonoBehaviour
 
         rb.AddForce(Vector3.up * flapForce, ForceMode.Impulse);
 
-        // If player is already moving while in the air
+        // If player is already moving while in the air, apply forward speed boost
         if (Mathf.Abs(rb.velocity.x) > 0f && Mathf.Abs(rb.velocity.z) > 0f)
         {
-            // Apply forward speed boost
             currentSpeedBoost = flapSpeedBoost;
         }
 

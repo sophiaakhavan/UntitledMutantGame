@@ -2138,7 +2138,7 @@ MonoBehaviour:
   flySpeed: 10
   maxFlySpeed: 20
   defaultGravityScale: 2
-  glideGravityScale: 0.002
+  glideGravityScale: 0.001
   flapForce: 12
   diveMultiplier: 1.02
   flapThreshold: 0.3
