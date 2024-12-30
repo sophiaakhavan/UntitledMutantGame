@@ -99,6 +99,10 @@ public class PlayerMovementController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// If player holds Lift Input within the established flap threshold, flap. Otherwise,
+    /// if Lift Input is continuously held for longer than threshold, glide until it is released.
+    /// </summary>
     private void TrackLiftInput()
     {
         if (inputHandler.LiftInput)
@@ -181,6 +185,9 @@ public class PlayerMovementController : MonoBehaviour
         rb.MovePosition(newPosition);
     }
 
+    /// <summary>
+    /// Flap wings once, exerting an upwards impulse onto the player and temporarily increasing flight speed
+    /// </summary>
     private void Flap()
     {
         if (!canFlap) return;
@@ -202,9 +209,8 @@ public class PlayerMovementController : MonoBehaviour
 
     /// <summary>
     /// While the bird is in the air, determine its velocity depending on whether it is gliding or not.
-    /// Player can change the direction of flight with WASD, and the bird will glide as long as it is in the air.
-    /// Direction must be given to enable gliding.
-    /// Player can press W while facing downward to dive.
+    /// Player can change the direction of flight with WASD.
+    /// Lift Input must be constantly pressed to glide.
     /// </summary>
     private void ApplyFlyingPhysics()
     {
@@ -247,10 +253,15 @@ public class PlayerMovementController : MonoBehaviour
         // Default flying velocity
         newVelocity = flyDirection * effectiveSpeed;
 
+        // Slowed descent while gliding
         if (isGliding)
         {
-            // Slowed descent while gliding
-            newVelocity.y = rb.velocity.y + (Physics.gravity.y * Time.deltaTime)*glideGravityScale;
+            // Simulate lift by applying upward force
+            float liftForce = Mathf.Abs(Physics.gravity.y) * (1 - glideGravityScale);
+            newVelocity.y = rb.velocity.y + liftForce * Time.deltaTime;
+            
+            // Ensure the upward force doesn't completely negate gravity for realism
+            newVelocity.y = Mathf.Max(newVelocity.y, Physics.gravity.y * glideGravityScale * Time.deltaTime);
 
             // Dive mechanics (W (moveInput.y) + Look down)
             //if (Mathf.Abs(moveInput.y) > 0 && Vector3.Dot(forward, Vector3.down) > 0.5f)
