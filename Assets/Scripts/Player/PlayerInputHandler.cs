@@ -13,13 +13,8 @@ public class PlayerInputHandler : MonoBehaviour
     private PlayerInputActions inputActions;
     public Vector2 MoveInput { get; private set; }
     public Vector2 LookInput { get; private set; }
-    public bool LiftInput { get; private set; }
-    public bool GrabInput { get; private set; }
+    public bool JumpInput { get; private set; }
 
-    public void ResetLiftInput()
-    {
-        LiftInput = false;
-    }
 
     private void Awake()
     {
@@ -34,12 +29,8 @@ public class PlayerInputHandler : MonoBehaviour
         inputActions.Player.Look.canceled += ctx => LookInput = Vector2.zero;
 
         // Jumping
-        inputActions.Player.Lift.performed += ctx => LiftInput = true;
-        inputActions.Player.Lift.canceled += ctx => LiftInput = false;
-
-        // Grabbing
-        inputActions.Player.Grab.performed += ctx => GrabInput = true;
-        inputActions.Player.Grab.canceled += ctx => GrabInput = false;
+        inputActions.Player.Jump.performed += ctx => JumpInput = true;
+        inputActions.Player.Jump.canceled += ctx => JumpInput = false;
     }
 
     private void Start()
@@ -81,6 +72,12 @@ public class PlayerInputHandler : MonoBehaviour
     private void OnDisable()
     {
         inputActions.Player.Disable();
+    }
+
+    // Reset JumpInput after it's used
+    public void ResetJumpInput()
+    {
+        JumpInput = false;
     }
 
 }

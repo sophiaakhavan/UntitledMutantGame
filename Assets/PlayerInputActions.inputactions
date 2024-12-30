@@ -24,18 +24,9 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Lift",
+                    "name": "Jump",
                     "type": "Button",
                     "id": "7973abd5-367a-4985-adc7-08c5085fc461",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
-                    "name": "Grab",
-                    "type": "Button",
-                    "id": "fdf183fa-08f7-4352-a5ea-9840aee6404c",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -116,18 +107,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Lift",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "75bfbfc8-e89c-488d-8819-5126a64ac542",
-                    "path": "<Mouse>/leftButton",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Grab",
+                    "action": "Jump",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
