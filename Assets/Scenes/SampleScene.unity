@@ -2137,9 +2137,11 @@ MonoBehaviour:
   walkSpeed: 5
   flySpeed: 10
   maxFlySpeed: 20
-  gravityScale: 0.005
-  flapForce: 5
+  defaultGravityScale: 2
+  glideGravityScale: 0.002
+  flapForce: 12
   diveMultiplier: 1.02
+  flapThreshold: 0.3
   groundCheckRadius: 0.3
   groundLayer:
     serializedVersion: 2
