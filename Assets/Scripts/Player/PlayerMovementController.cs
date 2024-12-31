@@ -52,9 +52,9 @@ public class PlayerMovementController : MonoBehaviour
 
     private void Update()
     {
-
         if (inputHandler == null)
         {
+            Debug.Log("Input handler not found on player!");
             return;
         }
 
@@ -77,7 +77,7 @@ public class PlayerMovementController : MonoBehaviour
     private void CheckGroundStatus()
     {
         // Get the bottom center of the collider
-        Collider collider = GetComponent<Collider>();
+        Collider collider = GetComponentInChildren<Collider>();
         if (collider == null) return; // Ensure the player has a collider
 
         Vector3 origin = collider.bounds.center;
