@@ -10,21 +10,24 @@ public class PlayerMovementController : MonoBehaviour
 
     [Header("Movement Settings")]
     [SerializeField] private float walkSpeed = 5f; // Walking speed
-    [SerializeField] private float flySpeed = 5f; // Base flying speed
-    [SerializeField] private float maxFlySpeed = 10f;
+    [SerializeField] private float flySpeed = 10f; // Base flying speed
+    [SerializeField] private float maxFlySpeed = 20f;
+    [SerializeField] private float maxGlideSpeed = 40f;
     [SerializeField] private float defaultGravityScale = 2f; // Gravity scale normally
-    [SerializeField] private float glideGravityScale = 0.2f; // Gravity scale during gliding
-    [SerializeField] private float flapForce = 8f; // Force applied when flapping
-    [SerializeField] private float diveMultiplier = 50f;
-    [SerializeField] private float flapThreshold = 0.2f; // Seconds to hold Lift for a flap
+    [SerializeField] private float glideScale = 0.5f; // Scale to counteract gravity when gliding
+    [SerializeField] private float minFallSpeedMultiplier = 0.2f; // Fraction of terminal velocity to define min fall speed when gliding
+    [SerializeField] private float flapForce = 12f; // Force applied when flapping
+    [SerializeField] private float jumpForce = 16f; // Force applied when jumping off the ground
+    [SerializeField] private float diveMultiplier = 2f;
+    [SerializeField] private float flapThreshold = 0.3f; // Seconds to hold Lift for a flap
 
     [Header("Ground Detection")]
     [SerializeField] private float groundCheckRadius = 0.3f; // Radius for checking ground
     [SerializeField] private LayerMask groundLayer; // Layer that represents the ground
 
     [Header("Flapping Speed Boost Settings")]
-    [SerializeField] private float flapSpeedBoost = 5f; // Additional speed gained from flapping
-    [SerializeField] private float speedDecayRate = 2f; // Rate at which the boost decays (units/second)
+    [SerializeField] private float flapSpeedBoost = 1f; // Additional speed gained from flapping
+    [SerializeField] private float speedDecayRate = 5f; // Rate at which the boost decays (units/second)
 
     private float currentSpeedBoost = 0f; // Tracks the current speed boost
 
@@ -52,9 +55,9 @@ public class PlayerMovementController : MonoBehaviour
 
     private void Update()
     {
-
         if (inputHandler == null)
         {
+            Debug.Log("Input handler not found on player!");
             return;
         }
 
@@ -77,7 +80,7 @@ public class PlayerMovementController : MonoBehaviour
     private void CheckGroundStatus()
     {
         // Get the bottom center of the collider
-        Collider collider = GetComponent<Collider>();
+        Collider collider = GetComponentInChildren<Collider>();
         if (collider == null) return; // Ensure the player has a collider
 
         Vector3 origin = collider.bounds.center;
@@ -128,13 +131,13 @@ public class PlayerMovementController : MonoBehaviour
             if (isGrounded)
             {
                 isFlying = true;
-                Flap();
+                Flap(true);
             }
             else
             {
                 if (pressDuration <= flapThreshold)
                 {
-                    Flap(); // Air flap
+                    Flap(false); // Air flap
                 }
                 else
                 {
@@ -186,21 +189,29 @@ public class PlayerMovementController : MonoBehaviour
     }
 
     /// <summary>
-    /// Flap wings once, exerting an upwards impulse onto the player and temporarily increasing flight speed
+    /// Flap wings once, exerting an upwards impulse onto the player and temporarily increasing flight speed.
+    /// If jumping off the ground, provide input true and apply jumpForce instead of flapForce.
     /// </summary>
-    private void Flap()
+    private void Flap(bool isJump)
     {
         if (!canFlap) return;
 
         // Reset vertical velocity to ensure consistent upward force
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
 
-        rb.AddForce(Vector3.up * flapForce, ForceMode.Impulse);
-
-        // If player is already moving while in the air, apply forward speed boost
-        if (Mathf.Abs(rb.velocity.x) > 0f && Mathf.Abs(rb.velocity.z) > 0f)
+        if (isJump)
         {
-            currentSpeedBoost = flapSpeedBoost;
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        }
+        else
+        {
+            rb.AddForce(Vector3.up * flapForce, ForceMode.Impulse);
+
+            // If player is already moving while in the air, apply forward speed boost
+            if (Mathf.Abs(rb.velocity.x) > 0f && Mathf.Abs(rb.velocity.z) > 0f)
+            {
+                currentSpeedBoost = flapSpeedBoost;
+            }
         }
 
         //inputHandler.ResetLiftInput();
@@ -208,8 +219,8 @@ public class PlayerMovementController : MonoBehaviour
     }
 
     /// <summary>
-    /// While the bird is in the air, determine its velocity depending on whether it is gliding or not.
-    /// Player can change the direction of flight with WASD.
+    /// While the player is in the air, determine its velocity depending on whether it is gliding or not.
+    /// Player can initiate forward motion with forward move input and can steer via look direction
     /// Lift Input must be constantly pressed to glide.
     /// </summary>
     private void ApplyFlyingPhysics()
@@ -218,56 +229,66 @@ public class PlayerMovementController : MonoBehaviour
         Vector2 moveInput = inputHandler.MoveInput;
 
         // Get camera-relative directions
-        Vector3 forward = cameraTransform.forward;
-        Vector3 right = cameraTransform.right;
+        Vector3 lookDirection = cameraTransform.forward;
+        lookDirection.y = 0f; // ignore vertical component of look direction
 
-        right.y = 0f;
-
-        forward.Normalize();
-        right.Normalize();
+        lookDirection.Normalize();
 
         // Base velocity
         Vector3 newVelocity = rb.velocity;
 
-        // Adjust direction with WASD input + look direction
-        if (moveInput.magnitude > 0.1f)
+        // Check for existing forward momentum or, if none, a new forward input
+        Vector3 horizontalVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        float forwardDot = Vector3.Dot(horizontalVelocity.normalized, lookDirection);
+
+        // Ensure player is moving in roughly forward direction relative to look direction
+        bool hasForwardMomentum = forwardDot > 0.1f && horizontalVelocity.magnitude > 0.1f;
+        bool isPressingForward = moveInput.y > 0.1f; // W key is pressed
+
+        if (hasForwardMomentum || isPressingForward)
         {
-            flyDirection = (forward * moveInput.y + right * moveInput.x).normalized;
+            flyDirection = lookDirection;
+        
+            // Either maintain existing forward motion or set to flySpeed, whichever is higher
+            float effectiveSpeed = Mathf.Max(horizontalVelocity.magnitude, flySpeed);
+
+            // Decay the speed boost over time
+            if (currentSpeedBoost > 0f)
+            {
+                currentSpeedBoost -= speedDecayRate * Time.deltaTime;
+                currentSpeedBoost = Mathf.Max(0f, currentSpeedBoost); // Ensure it doesn't go below 0
+                effectiveSpeed += currentSpeedBoost;
+            }
+
+            effectiveSpeed = Mathf.Clamp(effectiveSpeed, flySpeed, maxFlySpeed);
+
+            // Default flying velocity
+            newVelocity = flyDirection * effectiveSpeed;
         }
 
-        // Maintain forward motion
-        Vector3 forwardVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-        float effectiveSpeed = Mathf.Max(forwardVelocity.magnitude, flySpeed);
-
-        // Decay the speed boost over time
-        if (currentSpeedBoost > 0f)
-        {
-            currentSpeedBoost -= speedDecayRate * Time.deltaTime;
-            currentSpeedBoost = Mathf.Max(0f, currentSpeedBoost); // Ensure it doesn't go below 0
-                                                                  // Adjust forward speed with speed boost
-            effectiveSpeed += currentSpeedBoost;
-        }
-
-        effectiveSpeed = Mathf.Clamp(effectiveSpeed, flySpeed, maxFlySpeed);
-
-        // Default flying velocity
-        newVelocity = flyDirection * effectiveSpeed;
-
-        // Slowed descent while gliding
         if (isGliding)
         {
-            // Simulate lift by applying upward force
-            float liftForce = Mathf.Abs(Physics.gravity.y) * (1 - glideGravityScale);
-            newVelocity.y = rb.velocity.y + liftForce * Time.deltaTime;
-            
-            // Ensure the upward force doesn't completely negate gravity for realism
-            newVelocity.y = Mathf.Max(newVelocity.y, Physics.gravity.y * glideGravityScale * Time.deltaTime);
+            // Gradually increase forward speed
+            float targetForwardSpeed = maxGlideSpeed; // The maximum forward speed while gliding
+            float currentForwardSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
+            // Smoothly transition to the target forward speed
+            currentForwardSpeed = Mathf.Lerp(currentForwardSpeed, targetForwardSpeed, Time.deltaTime * 0.5f); // Adjust 0.5f for speed increase rate
+            newVelocity = flyDirection.normalized * currentForwardSpeed;
 
-            // Dive mechanics (W (moveInput.y) + Look down)
-            //if (Mathf.Abs(moveInput.y) > 0 && Vector3.Dot(forward, Vector3.down) > 0.5f)
-            //{
-            //    newVelocity *= diveMultiplier;
-            //}
+            // Simulate lift by applying upward force
+            float liftForce = Mathf.Abs(Physics.gravity.y) / glideScale;
+            newVelocity.y = rb.velocity.y + (Physics.gravity.y + liftForce) * Time.deltaTime * defaultGravityScale;
+
+            float terminalVelocity = -(rb.mass * Mathf.Abs(Physics.gravity.y)) / rb.drag;
+            float minDescentSpeed = Mathf.Abs(terminalVelocity) * minFallSpeedMultiplier;
+            // Ensure the falling speed does not exceed expected terminal velocity + is at least minDescentSpeed
+            newVelocity.y = Mathf.Clamp(newVelocity.y, terminalVelocity, -minDescentSpeed);
+
+            // Dive mechanics (Look down)
+            if (Vector3.Dot(lookDirection, Vector3.down) > 0.5f)
+            {
+                newVelocity *= diveMultiplier;
+            }
         }
         else
         {
