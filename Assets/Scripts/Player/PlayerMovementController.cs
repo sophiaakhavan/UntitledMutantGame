@@ -20,6 +20,7 @@ public class PlayerMovementController : MonoBehaviour
     [SerializeField] private float jumpForce = 16f; // Force applied when jumping off the ground
     [SerializeField] private float diveMultiplier = 2f;
     [SerializeField] private float flapThreshold = 0.3f; // Seconds to hold Lift for a flap
+    [SerializeField] private float flapCooldown = 0.5f; // Seconds until player can flap again
 
     [Header("Ground Detection")]
     [SerializeField] private float groundCheckRadius = 0.3f; // Radius for checking ground
@@ -41,10 +42,12 @@ public class PlayerMovementController : MonoBehaviour
     private Vector3 flyDirection = new Vector3(0f, 0f, 0f);
 
     private PlayerInputHandler inputHandler;
+    private Animator animator;
 
     private void Start()
     {
         rb = GetComponent<Rigidbody>();
+        animator = GetComponentInChildren<Animator>();
 
         inputHandler = GetComponent<PlayerInputHandler>();
         if (inputHandler == null)
@@ -99,6 +102,7 @@ public class PlayerMovementController : MonoBehaviour
             HandleWalking();
             isFlying = false;
             isGliding = false;
+            animator.SetBool("IsGliding", false);
         }
     }
 
@@ -119,6 +123,7 @@ public class PlayerMovementController : MonoBehaviour
             if (!isGrounded && (Time.time - spacePressTime) > flapThreshold)
             {
                 isGliding = true; // Enable gliding
+                animator.SetBool("IsGliding", true);
             }
         }
 
@@ -141,6 +146,7 @@ public class PlayerMovementController : MonoBehaviour
                 }
                 else
                 {
+                    animator.SetBool("IsGliding", false);
                     isGliding = false; // If player lets go, no longer gliding
                 }
             }
@@ -149,6 +155,7 @@ public class PlayerMovementController : MonoBehaviour
         // Disable gliding when JumpInput is no longer held
         if (!inputHandler.LiftInput && isGliding)
         {
+            animator.SetBool("IsGliding", false);
             isGliding = false;
         }
     }
@@ -156,7 +163,7 @@ public class PlayerMovementController : MonoBehaviour
     private IEnumerator ResetFlapCooldown()
     {
         canFlap = false;
-        yield return new WaitForSeconds(0.1f); // Slight delay to stabilize physics
+        yield return new WaitForSeconds(flapCooldown); // Slight delay to stabilize physics
         canFlap = true;
     }
 
@@ -186,6 +193,10 @@ public class PlayerMovementController : MonoBehaviour
         // Apply walking movement
         Vector3 newPosition = rb.position + moveDirection * walkSpeed * Time.deltaTime;
         rb.MovePosition(newPosition);
+        if (Vector3.Magnitude(moveDirection) > 0f)
+        {
+            rb.transform.forward = moveDirection;
+        }
     }
 
     /// <summary>
@@ -205,6 +216,8 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
+
+            animator.SetTrigger("Flap");
             rb.AddForce(Vector3.up * flapForce, ForceMode.Impulse);
 
             // If player is already moving while in the air, apply forward speed boost
@@ -212,10 +225,8 @@ public class PlayerMovementController : MonoBehaviour
             {
                 currentSpeedBoost = flapSpeedBoost;
             }
+            StartCoroutine(ResetFlapCooldown());
         }
-
-        //inputHandler.ResetLiftInput();
-        StartCoroutine(ResetFlapCooldown());
     }
 
     /// <summary>
@@ -298,6 +309,6 @@ public class PlayerMovementController : MonoBehaviour
 
         // Apply the calculated velocity to the Rigidbody
         rb.velocity = newVelocity;
-
+        rb.transform.forward = lookDirection;
     }
 }
