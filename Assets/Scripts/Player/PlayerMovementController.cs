@@ -103,6 +103,7 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
+            ResetRotations();
             flyDirection = new Vector3(0f, 0f, 0f);
             HandleWalking();
             isFlying = false;
@@ -297,13 +298,13 @@ public class PlayerMovementController : MonoBehaviour
             float currentHorizontalSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
 
             //Adjust target horizontal speed based on pitch
-            if(isClimbing)
-            {
-                targetHorizontalSpeed -= climbReductionMultiplier *= 40.0f;
-            }
-            else if(isDiving)
+            if (isDiving)
             {
                 targetHorizontalSpeed += diveBoostMultiplier * 40.0f;
+            }
+            else if (isClimbing)
+            {
+                targetHorizontalSpeed -= climbReductionMultiplier * 40.0f;
             }
 
             // Smoothly transition to the target horizontal speed
@@ -312,11 +313,23 @@ public class PlayerMovementController : MonoBehaviour
 
             // Simulate lift by applying upward force
             float liftForce = Mathf.Abs(Physics.gravity.y) / glideGravityScale;
+
+            // Lift decreases proportionally to downward pitch (dive)
+            if(isDiving)
+            {
+                liftForce *= 1.0f - diveBoostMultiplier;
+            }
+            // Lift increases proportionally to upward pitch (climb)
+            else if(isClimbing)
+            {
+                liftForce *= 1.0f + climbReductionMultiplier * 0.5f;
+            }
+
             newVelocity.y = rb.velocity.y + (Physics.gravity.y + liftForce) * Time.deltaTime * defaultGravityScale;
 
+            // Ensure the falling speed does not exceed expected terminal velocity + is at least minDescentSpeed
             float terminalVelocity = -(rb.mass * Mathf.Abs(Physics.gravity.y)) / rb.drag;
             float minDescentSpeed = Mathf.Abs(terminalVelocity) * minFallSpeedMultiplier;
-            // Ensure the falling speed does not exceed expected terminal velocity + is at least minDescentSpeed
             newVelocity.y = Mathf.Clamp(newVelocity.y, terminalVelocity, -minDescentSpeed);
         }
         else
@@ -327,27 +340,27 @@ public class PlayerMovementController : MonoBehaviour
 
         rb.velocity = newVelocity;
 
-        PerformFlightRotations();
+        PerformRollRotation();
 
     }
 
     /// <summary>
     /// Rotate the player about its roll during gliding
     /// </summary>
-    private void PerformFlightRotations()
+    private void PerformRollRotation()
     {
-        // Get the XZ-plane projections of rigidbody's forward and lookDirection
-        Vector3 xzForwardDirection = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
-        Vector3 xzLookDirection = new Vector3(cameraTransform.forward.x, 0f, cameraTransform.forward.z).normalized;
+        Vector3 horizontalForwardDirection = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
+        Vector3 horizontalLookDirection = new Vector3(cameraTransform.forward.x, 0f, cameraTransform.forward.z).normalized;
+        float horizontalMovement = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
 
         // Angle between current fly direction and current look direction
-        float angle = Vector3.SignedAngle(xzForwardDirection, xzLookDirection, Vector3.up);
+        float angle = Vector3.SignedAngle(horizontalForwardDirection, horizontalLookDirection, Vector3.up);
 
         // Map angle to a roll value using rollIntensity
         float targetRoll = Mathf.Clamp(-angle * rollIntensity, -rollIntensity, rollIntensity); // Roll intensity scales with the angle
 
-        // Smoothly interpolate towards the target roll
-        if (Mathf.Abs(angle) > 1f)
+        // Smoothly interpolate towards the target roll if looking left or right, and if moving horizontally
+        if (Mathf.Abs(angle) > 1f && horizontalMovement > 0.1f)
         {
             currentRoll = Mathf.LerpAngle(currentRoll, targetRoll, Time.deltaTime * rotationSmoothing);
         }
@@ -359,5 +372,14 @@ public class PlayerMovementController : MonoBehaviour
         // Add roll rotation around forward axis
         Quaternion rollRotation = Quaternion.AngleAxis(currentRoll, transform.forward); // Roll around the forward axis
         transform.rotation = Quaternion.Slerp(transform.rotation, rollRotation * transform.rotation, Time.deltaTime * rotationSmoothing);
+    }
+
+    private void ResetRotations()
+    {
+        currentRoll = 0.0f;
+        // Keep current yaw (horizontal rotation)
+        float currentYaw = transform.rotation.eulerAngles.y;
+        Quaternion targetRotation = Quaternion.Euler(0f, currentYaw, 0f);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSmoothing);
     }
 }
