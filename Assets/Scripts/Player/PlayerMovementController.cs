@@ -103,7 +103,7 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
-            ResetRotations();
+            ResetRollAndPitch();
             flyDirection = new Vector3(0f, 0f, 0f);
             HandleWalking();
             isFlying = false;
@@ -178,7 +178,6 @@ public class PlayerMovementController : MonoBehaviour
         // Get input
         Vector2 moveInput = inputHandler.MoveInput;
 
-        // Exit early if there's no move input
         if (Mathf.Abs(moveInput.x) < 0.1f && Mathf.Abs(moveInput.y) < 0.1f)
         {
             return;
@@ -199,9 +198,11 @@ public class PlayerMovementController : MonoBehaviour
         // Apply walking movement
         Vector3 newPosition = rb.position + moveDirection * walkSpeed * Time.deltaTime;
         rb.MovePosition(newPosition);
-        if (Vector3.Magnitude(moveDirection) > 0f)
+
+        if (moveDirection.magnitude > 0f)
         {
-            rb.transform.forward = moveDirection;
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSmoothing);
         }
     }
 
@@ -374,7 +375,7 @@ public class PlayerMovementController : MonoBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, rollRotation * transform.rotation, Time.deltaTime * rotationSmoothing);
     }
 
-    private void ResetRotations()
+    private void ResetRollAndPitch()
     {
         currentRoll = 0.0f;
         // Keep current yaw (horizontal rotation)
