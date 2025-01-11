@@ -6,15 +6,17 @@ public class PlayerCameraController : MonoBehaviour
 {
     public Transform player; // The parrot or player object
     public Vector3 offset = new Vector3(0, 5, -10); // Offset from the player
-    public float maxPitchAngle = 45f; // Max up/down camera angle
-
-    private float currentYaw = 0f; // Horizontal rotation (yaw)
-    private float currentPitch = 0f; // Vertical rotation (pitch)
 
     [Header("Sensitivity Settings")]
     public float lookSensitivity = .15f;
 
+    private float currentYaw = 0f; // Horizontal rotation (yaw)
+    private float currentPitch = 0f; // Vertical rotation (pitch)
+    private float maxPitchAngle = 45f; // Max up/down camera angle
+    private float maxFlightPitchAngle = 30f; // Max amount to look up or down during flight
+
     private PlayerInputHandler inputHandler;
+    private PlayerMovementController movementController;
 
     private void Start()
     {
@@ -22,6 +24,11 @@ public class PlayerCameraController : MonoBehaviour
         if(inputHandler == null)
         {
             Debug.LogError("PlayerInputHandler not found on the player GameObject!");
+        }
+        movementController = player.GetComponent<PlayerMovementController>();
+        if (movementController == null)
+        {
+            Debug.LogError("Player Movement Controller not found on the player GameObject!");
         }
     }
 
@@ -47,8 +54,14 @@ public class PlayerCameraController : MonoBehaviour
         currentYaw += mouseX;
         currentPitch -= mouseY;
 
-        // Clamp pitch to prevent over-rotation
-        currentPitch = Mathf.Clamp(currentPitch, -maxPitchAngle, maxPitchAngle);
+        if(movementController != null && movementController.IsFlying)
+        {
+            currentPitch = Mathf.Clamp(currentPitch, -maxFlightPitchAngle, maxFlightPitchAngle);
+        }
+        else
+        {
+            currentPitch = Mathf.Clamp(currentPitch, -maxPitchAngle, maxPitchAngle);
+        }
 
         // Rotate the camera
         Quaternion cameraRotation = Quaternion.Euler(currentPitch, currentYaw, 0);
