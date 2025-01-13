@@ -25,7 +25,6 @@ public abstract class EnemyAI : MonoBehaviour
         player = GameObject.FindGameObjectWithTag("Player").transform;
         targetWeapon = targetWeaponObject.GetComponent<Weapon>();
 
-        // Start roaming or idle behavior (override as needed)
         StartRoaming();
     }
 
@@ -144,7 +143,6 @@ public abstract class EnemyAI : MonoBehaviour
         Vector3 direction = (target - transform.position).normalized;
         transform.position += direction * speed * Time.deltaTime;
 
-        // Face the direction of movement
         transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
     }
 
@@ -155,18 +153,14 @@ public abstract class EnemyAI : MonoBehaviour
     /// <param name="speed"></param>
     protected virtual void MoveAwayFrom(Vector3 target, float speed)
     {
-        // Calculate the direction away from the target
         Vector3 directionAwayFromTarget = (transform.position - target).normalized;
 
-        // Calculate the new position, moving twice the current distance away
         float distance = Vector3.Distance(transform.position, target);
         Vector3 newTargetPosition = transform.position + directionAwayFromTarget * distance * 2f;
 
-        // Move the enemy to the new position
         Vector3 moveDirection = (newTargetPosition - transform.position).normalized;
         transform.position += moveDirection * speed * Time.deltaTime;
 
-        // Ensure the enemy is still facing the target
         transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
     }
 }
