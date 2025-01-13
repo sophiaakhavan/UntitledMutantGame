@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -7,32 +8,44 @@ using UnityEngine.EventSystems;
 public class PlayerMovementController : MonoBehaviour
 {
     public Transform cameraTransform;
+    public bool IsFlying { get { return isFlying; } set { isFlying = value; } }
 
     [Header("Movement Settings")]
-    [SerializeField] private float walkSpeed = 5f; // Walking speed
-    [SerializeField] private float flySpeed = 10f; // Base flying speed
+    [SerializeField] private float walkSpeed = 5f;
+    [SerializeField] private float minFlySpeed = 5f;
     [SerializeField] private float maxFlySpeed = 20f;
-    [SerializeField] private float maxGlideSpeed = 40f;
-    [SerializeField] private float defaultGravityScale = 2f; // Gravity scale normally
-    [SerializeField] private float glideScale = 0.5f; // Scale to counteract gravity when gliding
-    [SerializeField] private float minFallSpeedMultiplier = 0.2f; // Fraction of terminal velocity to define min fall speed when gliding
-    [SerializeField] private float flapForce = 12f; // Force applied when flapping
+    [SerializeField] private float maxGlideSpeed = 35f;
+    [SerializeField] private float maxDiveSpeed = 50f;
+    [SerializeField] private float flapForce = 12f;
     [SerializeField] private float jumpForce = 16f; // Force applied when jumping off the ground
-    [SerializeField] private float diveMultiplier = 2f;
     [SerializeField] private float flapThreshold = 0.3f; // Seconds to hold Lift for a flap
-    [SerializeField] private float flapCooldown = 0.5f; // Seconds until player can flap again
-
-    [Header("Ground Detection")]
-    [SerializeField] private float groundCheckRadius = 0.3f; // Radius for checking ground
-    [SerializeField] private LayerMask groundLayer; // Layer that represents the ground
+    [SerializeField] private float flapCooldown = 0.5f;
+    [SerializeField] private float defaultGravityScale = 2f;
+    [SerializeField] private float glideGravityScale = 0.5f; // Scale to counteract gravity when gliding
+    [SerializeField] private float minFallSpeedMultiplier = 0.2f; // Fraction of terminal velocity to define min fall speed when gliding
+    [SerializeField] private float dragFactor = 0.99f; // Amount to reduce horizontal speed during gliding each frame
 
     [Header("Flapping Speed Boost Settings")]
-    [SerializeField] private float flapSpeedBoost = 1f; // Additional speed gained from flapping
-    [SerializeField] private float speedDecayRate = 5f; // Rate at which the boost decays (units/second)
+    [SerializeField] private float flapSpeedBoost = 1f;
+    [SerializeField] private float speedDecayRate = 5f;
 
-    private float currentSpeedBoost = 0f; // Tracks the current speed boost
+    [Header("Ground Detection")]
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundCheckRadius = 0.3f;
+
+    [Header("Visual Effects")]
+    [SerializeField] private float moveDirectionDelay = 0.2f; // Amount to delay player transform after directional change
+    [SerializeField] private float rollIntensity = 45f; // Degrees to roll when moving left/right during flight
+    [SerializeField] private float rotationSmoothing = 10f; // Smoothing speed for rotation
+
+    float currentRoll;
+
+    private float currentSpeedBoost = 0f;
 
     private float spacePressTime = 0f; // Track time Lift input has been held
+
+    private float targetHorizontalSpeed; // Target speed during gliding
+    private float pitchSpeedFactor = 5f; // Amount to adjust speed each frame when diving/climbing
 
     private Rigidbody rb;
     private bool isGrounded = false;
@@ -60,14 +73,12 @@ public class PlayerMovementController : MonoBehaviour
     {
         if (inputHandler == null)
         {
-            Debug.Log("Input handler not found on player!");
+            Debug.LogError("Input handler not found on player!");
             return;
         }
 
-        // Check if player is on the ground or not
         CheckGroundStatus();
 
-        // Process jumping/flapping/gliding
         TrackLiftInput();
     }
 
@@ -84,12 +95,11 @@ public class PlayerMovementController : MonoBehaviour
     {
         // Get the bottom center of the collider
         Collider collider = GetComponentInChildren<Collider>();
-        if (collider == null) return; // Ensure the player has a collider
+        if (collider == null) return;
 
         Vector3 origin = collider.bounds.center;
-        origin.y = collider.bounds.min.y; // Use the bottom of the collider
+        origin.y = collider.bounds.min.y;
 
-        // Perform a sphere check for ground contact
         isGrounded = Physics.CheckSphere(origin, groundCheckRadius, groundLayer);
 
         if (!isGrounded)
@@ -98,6 +108,7 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
+            ResetRollAndPitch();
             flyDirection = new Vector3(0f, 0f, 0f);
             HandleWalking();
             isFlying = false;
@@ -116,13 +127,14 @@ public class PlayerMovementController : MonoBehaviour
         {
             if (spacePressTime == 0f)
             {
-                spacePressTime = Time.time; // Start timing when space is pressed
+                spacePressTime = Time.time;
             }
 
             // Check if input exceeds the flap threshold for gliding
-            if (!isGrounded && (Time.time - spacePressTime) > flapThreshold)
+            if (!isGliding && !isGrounded && (Time.time - spacePressTime) > flapThreshold)
             {
-                isGliding = true; // Enable gliding
+                targetHorizontalSpeed = maxGlideSpeed;
+                isGliding = true;
                 animator.SetBool("IsGliding", true);
             }
         }
@@ -131,12 +143,12 @@ public class PlayerMovementController : MonoBehaviour
         if (!inputHandler.LiftInput && spacePressTime > 0f)
         {
             float pressDuration = Time.time - spacePressTime;
-            spacePressTime = 0f; // Reset the timer
+            spacePressTime = 0f;
 
             if (isGrounded)
             {
                 isFlying = true;
-                Flap(true);
+                Flap(true, new Vector3(rb.velocity.x, 0f, rb.velocity.z));
             }
             else
             {
@@ -151,64 +163,61 @@ public class PlayerMovementController : MonoBehaviour
                 }
             }
         }
-
-        // Disable gliding when JumpInput is no longer held
-        if (!inputHandler.LiftInput && isGliding)
-        {
-            animator.SetBool("IsGliding", false);
-            isGliding = false;
-        }
     }
 
     private IEnumerator ResetFlapCooldown()
     {
         canFlap = false;
-        yield return new WaitForSeconds(flapCooldown); // Slight delay to stabilize physics
+        yield return new WaitForSeconds(flapCooldown);
         canFlap = true;
     }
 
     private void HandleWalking()
     {
-        // Get input
         Vector2 moveInput = inputHandler.MoveInput;
 
-        // Exit early if there's no move input
         if (Mathf.Abs(moveInput.x) < 0.1f && Mathf.Abs(moveInput.y) < 0.1f)
         {
             return;
         }
 
-        // Calculate movement direction relative to the camera
         Vector3 forward = cameraTransform.forward;
         Vector3 right = cameraTransform.right;
 
-        forward.y = 0f; // Ensure movement is horizontal
+        forward.y = 0f;
         right.y = 0f;
 
         forward.Normalize();
         right.Normalize();
 
-        Vector3 moveDirection = forward * moveInput.y + right * moveInput.x;
+        Vector3 moveDirection = (forward * moveInput.y + right * moveInput.x).normalized;
+        flyDirection = moveDirection;
 
-        // Apply walking movement
-        Vector3 newPosition = rb.position + moveDirection * walkSpeed * Time.deltaTime;
-        rb.MovePosition(newPosition);
-        if (Vector3.Magnitude(moveDirection) > 0f)
+        rb.velocity = new Vector3(moveDirection.x * walkSpeed, rb.velocity.y, moveDirection.z * walkSpeed);
+
+        // Smoothy rotate the player in the input direction
+        if (moveDirection.magnitude > 0f)
         {
-            rb.transform.forward = moveDirection;
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSmoothing);
         }
     }
 
     /// <summary>
-    /// Flap wings once, exerting an upwards impulse onto the player and temporarily increasing flight speed.
-    /// If jumping off the ground, provide input true and apply jumpForce instead of flapForce.
+    /// Flap wings once, exerting an upwards impulse onto the player.
+    /// If jumping off the ground, provide input true and apply jumpForce instead of flapForce. Also input the ground
+    /// horizontal velocity upon jumping.
+    /// If not jumping off the ground, applies a temporary speed boost.
     /// </summary>
-    private void Flap(bool isJump)
+    /// <param name="isJump"></param>
+    /// <param name="groundVelocity"></param>
+    private void Flap(bool isJump, Vector3? groundVelocity = null)
     {
         if (!canFlap) return;
 
         // Reset vertical velocity to ensure consistent upward force
-        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        Vector3 horizontalVelocity = groundVelocity ?? new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        rb.velocity = new Vector3(horizontalVelocity.x, 0f, horizontalVelocity.z);
 
         if (isJump)
         {
@@ -216,12 +225,12 @@ public class PlayerMovementController : MonoBehaviour
         }
         else
         {
-
             animator.SetTrigger("Flap");
             rb.AddForce(Vector3.up * flapForce, ForceMode.Impulse);
 
-            // If player is already moving while in the air, apply forward speed boost
-            if (Mathf.Abs(rb.velocity.x) > 0f && Mathf.Abs(rb.velocity.z) > 0f)
+            Vector2 moveInput = inputHandler.MoveInput;
+            // If player is already moving horizontally while in the air or flaps with forward move input, apply forward speed boost
+            if (new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude > 0f || moveInput.y > 0.1f)
             {
                 currentSpeedBoost = flapSpeedBoost;
             }
@@ -230,85 +239,132 @@ public class PlayerMovementController : MonoBehaviour
     }
 
     /// <summary>
-    /// While the player is in the air, determine its velocity depending on whether it is gliding or not.
+    /// While the player is in the air, determine horizontal and vertical velocities depending on whether gliding or not.
     /// Player can initiate forward motion with forward move input and can steer via look direction
-    /// Lift Input must be constantly pressed to glide.
     /// </summary>
     private void ApplyFlyingPhysics()
     {
-        // Get WASD input
         Vector2 moveInput = inputHandler.MoveInput;
+        Vector3 lookDirection = cameraTransform.forward.normalized;
+        // Have separate logic between xz (horizontal) movement and y movement
+        Vector3 horizontalLookDirection = new Vector3(lookDirection.x, 0f, lookDirection.z).normalized;
+        Vector3 horizontalVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
 
-        // Get camera-relative directions
-        Vector3 lookDirection = cameraTransform.forward;
-        lookDirection.y = 0f; // ignore vertical component of look direction
-
-        lookDirection.Normalize();
-
-        // Base velocity
         Vector3 newVelocity = rb.velocity;
 
-        // Check for existing forward momentum or, if none, a new forward input
-        Vector3 horizontalVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-        float forwardDot = Vector3.Dot(horizontalVelocity.normalized, lookDirection);
-
-        // Ensure player is moving in roughly forward direction relative to look direction
-        bool hasForwardMomentum = forwardDot > 0.1f && horizontalVelocity.magnitude > 0.1f;
+        // Ensure player's existing horizontal momentum is in the same direction as look direction
+        bool hasForwardMomentum = Vector3.Dot(horizontalVelocity.normalized, horizontalLookDirection) > 0.1f && horizontalVelocity.magnitude > 0.1f;
         bool isPressingForward = moveInput.y > 0.1f; // W key is pressed
 
         if (hasForwardMomentum || isPressingForward)
         {
-            flyDirection = lookDirection;
-        
-            // Either maintain existing forward motion or set to flySpeed, whichever is higher
-            float effectiveSpeed = Mathf.Max(horizontalVelocity.magnitude, flySpeed);
+            // Smooth the changes in flight direction
+            flyDirection = Vector3.Slerp(flyDirection, horizontalLookDirection, Time.deltaTime / moveDirectionDelay);
+            // While visually the transform's forward should be in look direction, the flyDirection should distinguish between xz and y
+            transform.forward = Vector3.Slerp(transform.forward, lookDirection, Time.deltaTime / moveDirectionDelay);
 
-            // Decay the speed boost over time
+            // Either maintain existing horizontal motion or set to minFlySpeed, whichever is higher
+            float effectiveSpeed = Mathf.Max(horizontalVelocity.magnitude, minFlySpeed);
+
             if (currentSpeedBoost > 0f)
             {
                 currentSpeedBoost -= speedDecayRate * Time.deltaTime;
-                currentSpeedBoost = Mathf.Max(0f, currentSpeedBoost); // Ensure it doesn't go below 0
+                currentSpeedBoost = Mathf.Max(0f, currentSpeedBoost);
                 effectiveSpeed += currentSpeedBoost;
             }
 
-            effectiveSpeed = Mathf.Clamp(effectiveSpeed, flySpeed, maxFlySpeed);
+            effectiveSpeed = Mathf.Clamp(effectiveSpeed, minFlySpeed, maxFlySpeed);
 
-            // Default flying velocity
             newVelocity = flyDirection * effectiveSpeed;
         }
-
         if (isGliding)
         {
-            // Gradually increase forward speed
-            float targetForwardSpeed = maxGlideSpeed; // The maximum forward speed while gliding
-            float currentForwardSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
-            // Smoothly transition to the target forward speed
-            currentForwardSpeed = Mathf.Lerp(currentForwardSpeed, targetForwardSpeed, Time.deltaTime * 0.5f); // Adjust 0.5f for speed increase rate
-            newVelocity = flyDirection.normalized * currentForwardSpeed;
-
-            // Simulate lift by applying upward force
-            float liftForce = Mathf.Abs(Physics.gravity.y) / glideScale;
-            newVelocity.y = rb.velocity.y + (Physics.gravity.y + liftForce) * Time.deltaTime * defaultGravityScale;
-
-            float terminalVelocity = -(rb.mass * Mathf.Abs(Physics.gravity.y)) / rb.drag;
-            float minDescentSpeed = Mathf.Abs(terminalVelocity) * minFallSpeedMultiplier;
-            // Ensure the falling speed does not exceed expected terminal velocity + is at least minDescentSpeed
-            newVelocity.y = Mathf.Clamp(newVelocity.y, terminalVelocity, -minDescentSpeed);
-
-            // Dive mechanics (Look down)
-            if (Vector3.Dot(lookDirection, Vector3.down) > 0.5f)
-            {
-                newVelocity *= diveMultiplier;
-            }
+            AdjustGlidingPhysics(ref newVelocity, lookDirection, horizontalVelocity.magnitude);
+            
         }
         else
         {
             // Natural descent due to gravity
-            newVelocity.y = rb.velocity.y + (Physics.gravity.y * Time.deltaTime) * defaultGravityScale;
+            newVelocity.y = rb.velocity.y + Physics.gravity.y * Time.deltaTime * defaultGravityScale;
         }
 
-        // Apply the calculated velocity to the Rigidbody
         rb.velocity = newVelocity;
-        rb.transform.forward = lookDirection;
+
+        PerformRollRotation();
+
+    }
+
+    /// <summary>
+    /// Adjusts velocity and lift forces during gliding.
+    /// When gliding, rate of falling is slower and horizontal speed gradually grows faster.
+    /// If looking up, horizontal motion significantly decreases (Climb).
+    /// If looking down, horizontal and downward vertical motion increases (Dive).
+    /// </summary>
+    /// <param name="velocity"></param>
+    /// <param name="lookDirection"></param>
+    /// <param name="horizontalSpeed"></param>
+    private void AdjustGlidingPhysics(ref Vector3 velocity, Vector3 lookDirection, float horizontalSpeed)
+    {
+        float pitch = Vector3.Dot(lookDirection, Vector3.up);
+        bool isClimbing = pitch > 0.2f;
+        bool isDiving = pitch < 0.2f;
+        float pitchFactor = Mathf.Clamp01(Mathf.Abs(pitch));
+
+        //Adjust target horizontal speed based on pitch
+        targetHorizontalSpeed = Mathf.Clamp(targetHorizontalSpeed * dragFactor + (isDiving ? pitchFactor * pitchSpeedFactor : -pitchFactor * pitchSpeedFactor), minFlySpeed, maxDiveSpeed);
+
+        // Smoothly transition to the target horizontal speed
+        float smoothedHorizontalSpeed = Mathf.Lerp(horizontalSpeed, targetHorizontalSpeed, Time.deltaTime * 0.5f); // Adjust 0.5f for speed increase rate
+        velocity = flyDirection.normalized * smoothedHorizontalSpeed;
+
+        // Simulate lift by applying upward force
+        // Lift decreases/increases proportionally to pitch
+        float liftForce = Mathf.Abs(Physics.gravity.y) / glideGravityScale * (1f + (isClimbing ? pitchFactor * 0.5f : -pitchFactor));
+        velocity.y = rb.velocity.y + (Physics.gravity.y + liftForce) * Time.deltaTime * defaultGravityScale;
+
+        // Ensure the falling speed does not exceed expected terminal velocity + is at least minDescentSpeed
+        float terminalVelocity = -(rb.mass * Mathf.Abs(Physics.gravity.y)) / rb.drag;
+        float minDescentSpeed = Mathf.Abs(terminalVelocity) * minFallSpeedMultiplier;
+        velocity.y = Mathf.Clamp(velocity.y, terminalVelocity, -minDescentSpeed);
+    }
+
+    /// <summary>
+    /// Rotate the player about its roll during gliding
+    /// </summary>
+    private void PerformRollRotation()
+    {
+        Vector3 horizontalForwardDirection = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
+        Vector3 horizontalLookDirection = new Vector3(cameraTransform.forward.x, 0f, cameraTransform.forward.z).normalized;
+        float horizontalSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
+
+        // Angle (on xz plane) between current fly direction and current look direction
+        float angle = Vector3.SignedAngle(horizontalForwardDirection, horizontalLookDirection, Vector3.up);
+
+        float targetRoll; 
+
+        // Smoothly interpolate towards the target roll if looking left or right, and if moving horizontally enough
+        if (Mathf.Abs(angle) > 1f && horizontalSpeed > 1f)
+        {
+            // Map angle to a roll value using rollIntensity
+            targetRoll = Mathf.Clamp(-angle * rollIntensity, -rollIntensity, rollIntensity);
+        }
+        else // Gradually decay the roll back to neutral
+        {
+            targetRoll = 0f;
+        }
+        currentRoll = Mathf.LerpAngle(currentRoll, targetRoll, Time.deltaTime * rotationSmoothing);
+
+        // Smoothly add roll rotation
+        Quaternion rollRotation = Quaternion.AngleAxis(currentRoll, transform.forward); // Roll around the forward axis
+        transform.rotation = Quaternion.Slerp(transform.rotation, rollRotation * transform.rotation, Time.deltaTime * rotationSmoothing);
+    }
+
+    private void ResetRollAndPitch()
+    {
+        currentRoll = 0.0f;
+        // Keep current yaw (horizontal rotation)
+        float currentYaw = transform.rotation.eulerAngles.y;
+        Quaternion targetRotation = Quaternion.Euler(0f, currentYaw, 0f);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSmoothing);
     }
 }

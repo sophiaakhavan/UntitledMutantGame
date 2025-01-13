@@ -80,13 +80,13 @@ public abstract class EnemyAI : MonoBehaviour
     {
         if (player == null)
         {
-            Debug.Log("Player not found!");
+            Debug.LogError("Player not found!");
             return;
         }
 
         if(targetWeapon == null)
         {
-            Debug.Log("Target weapon not specified!");
+            Debug.LogError("Target weapon not specified!");
             return;
         }
 
