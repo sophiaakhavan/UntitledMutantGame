@@ -4,16 +4,16 @@ using UnityEngine;
 
 public class PlayerCameraController : MonoBehaviour
 {
-    public Transform player; // The parrot or player object
-    public Vector3 offset = new Vector3(0, 5, -10); // Offset from the player
+    public Transform player;
+    public Vector3 offset = new Vector3(0, 5, -10);
 
     [Header("Sensitivity Settings")]
     public float lookSensitivity = .15f;
 
-    private float currentYaw = 0f; // Horizontal rotation (yaw)
-    private float currentPitch = 0f; // Vertical rotation (pitch)
-    private float maxPitchAngle = 45f; // Max up/down camera angle
-    private float maxFlightPitchAngle = 30f; // Max amount to look up or down during flight
+    private float currentYaw = 0f;
+    private float currentPitch = 0f;
+    private float maxPitchAngle = 45f;
+    private float maxFlightPitchAngle = 30f;
 
     private PlayerInputHandler inputHandler;
     private PlayerMovementController movementController;
@@ -44,13 +44,11 @@ public class PlayerCameraController : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        // Get mouse input
         Vector2 lookInput = inputHandler.LookInput;
 
         float mouseX = lookInput.x * lookSensitivity;
         float mouseY = lookInput.y * lookSensitivity;
 
-        // Adjust yaw (horizontal rotation) and pitch (vertical rotation)
         currentYaw += mouseX;
         currentPitch -= mouseY;
 
@@ -63,7 +61,6 @@ public class PlayerCameraController : MonoBehaviour
             currentPitch = Mathf.Clamp(currentPitch, -maxPitchAngle, maxPitchAngle);
         }
 
-        // Rotate the camera
         Quaternion cameraRotation = Quaternion.Euler(currentPitch, currentYaw, 0);
         transform.rotation = cameraRotation;
     }
@@ -72,7 +69,6 @@ public class PlayerCameraController : MonoBehaviour
     {
         if (player == null) return;
 
-        // Keep the camera at a fixed offset behind the player
         transform.position = player.position + transform.rotation * offset;
     }
 }

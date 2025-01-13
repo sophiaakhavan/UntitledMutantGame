@@ -25,19 +25,15 @@ public class PlayerInputHandler : MonoBehaviour
     {
         inputActions = new PlayerInputActions();
 
-        // Movement
         inputActions.Player.Move.performed += ctx => MoveInput = ctx.ReadValue<Vector2>();
         inputActions.Player.Move.canceled += ctx => MoveInput = Vector2.zero;
 
-        // Looking
         inputActions.Player.Look.performed += ctx => LookInput = ctx.ReadValue<Vector2>();
         inputActions.Player.Look.canceled += ctx => LookInput = Vector2.zero;
 
-        // Jumping
         inputActions.Player.Lift.performed += ctx => LiftInput = true;
         inputActions.Player.Lift.canceled += ctx => LiftInput = false;
 
-        // Grabbing
         inputActions.Player.Grab.performed += ctx => GrabInput = true;
         inputActions.Player.Grab.canceled += ctx => GrabInput = false;
     }
@@ -63,14 +59,14 @@ public class PlayerInputHandler : MonoBehaviour
 
     private void LockCursor()
     {
-        Cursor.lockState = CursorLockMode.Locked; // Locks the cursor to the center
-        Cursor.visible = false; // Hides the cursor
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void UnlockCursor()
     {
-        Cursor.lockState = CursorLockMode.None; // Frees the cursor
-        Cursor.visible = true; // Shows the cursor
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     private void OnEnable()
