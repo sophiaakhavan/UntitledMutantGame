@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 2211578439880539196}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 2.005}
+  m_LocalPosition: {x: 0, y: 0, z: 2.895}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -138,7 +138,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 5405780652730385702}
   offset: {x: 0, y: 0.7, z: -3.66}
-  maxPitchAngle: 45
   lookSensitivity: 0.15
 --- !u!1 &7836496662541901467
 GameObject:
@@ -231,22 +230,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraTransform: {fileID: 7026546247240057842}
   walkSpeed: 5
-  flySpeed: 10
+  minFlySpeed: 5
   maxFlySpeed: 20
   maxGlideSpeed: 40
-  defaultGravityScale: 2
-  glideScale: 0.5
-  minFallSpeedMultiplier: 0.2
+  maxDiveSpeed: 50
   flapForce: 12
   jumpForce: 16
-  diveMultiplier: 1.02
   flapThreshold: 0.3
-  groundCheckRadius: 0.3
+  flapCooldown: 0.5
+  defaultGravityScale: 2
+  glideGravityScale: 0.5
+  minFallSpeedMultiplier: 0.2
+  dragFactor: 0.99
+  flapSpeedBoost: 1
+  speedDecayRate: 2
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
-  flapSpeedBoost: 1
-  speedDecayRate: 2
+  groundCheckRadius: 0.3
+  moveDirectionDelay: 0.2
+  rollIntensity: 45
+  rotationSmoothing: 10
 --- !u!114 &7931531865663423138
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -259,13 +263,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f17021365d8fe4919a831cfc33210d9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  grabRange: 3
+  playerCameraTransform: {fileID: 7026546247240057842}
+  grabRange: 5
   grabbableLayer:
     serializedVersion: 2
     m_Bits: 8
-  holdPoint: {fileID: 2835286508915358605}
-  moveSpeed: 10
-  weightDelayFactor: 0.2
+  grabPoint: {fileID: 2835286508915358605}
 --- !u!1001 &5099302548265958478
 PrefabInstance:
   m_ObjectHideFlags: 0
