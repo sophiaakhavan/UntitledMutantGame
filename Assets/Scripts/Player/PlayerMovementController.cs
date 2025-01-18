@@ -31,6 +31,7 @@ public class PlayerMovementController : MonoBehaviour
 
     [Header("Ground Detection")]
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private LayerMask walkableLayer;
     [SerializeField] private float groundCheckRadius = 0.3f;
 
     [Header("Visual Effects")]
@@ -100,7 +101,8 @@ public class PlayerMovementController : MonoBehaviour
         Vector3 origin = collider.bounds.center;
         origin.y = collider.bounds.min.y;
 
-        isGrounded = Physics.CheckSphere(origin, groundCheckRadius, groundLayer);
+        isGrounded = Physics.CheckSphere(origin, groundCheckRadius, groundLayer) ||
+            Physics.CheckSphere(origin, groundCheckRadius, walkableLayer);
 
         if (!isGrounded)
         {

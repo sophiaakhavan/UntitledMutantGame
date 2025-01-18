@@ -1,14 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
+public enum EnemyState
+{
+    Idle,
+    Confused,
+    Chase
+}
+
+/// <summary>
+/// Handles all enemy movement and attack behavior
+/// </summary>
 public abstract class EnemyAI : MonoBehaviour
 {
     [Header("General Settings")]
     [SerializeField] private float roamSpeed = 4f;
     [SerializeField] private float chaseSpeed = 6f;
     [SerializeField] private float detectionRadius = 10f;
+    [SerializeField] private EnemyState currentState = EnemyState.Idle;
     [SerializeField] private Transform[] patrolPoints;
+    [SerializeField] private Transform eyePoint; // Where enemy's eyes are for player detection calculation
 
     [Header("Weapon Settings")]
     [SerializeField] private GameObject targetWeaponObject;
@@ -16,58 +29,87 @@ public abstract class EnemyAI : MonoBehaviour
 
     protected Transform player;
     protected bool hasWeapon = false;
-    protected bool isChasing = false;
 
     private Weapon targetWeapon;
+    private NavMeshAgent agent;
+    private int currentPatrolIndex = 0;
+    private bool isHandlingConfused = false;
+    private Vector3 playerLastSeenPos;
 
     protected virtual void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player").transform;
         targetWeapon = targetWeaponObject.GetComponent<Weapon>();
-
-        StartRoaming();
+        agent = GetComponent<NavMeshAgent>();
     }
 
     protected virtual void Update()
     {
-        if(PlayerDetected() && !isChasing)
+        if(PlayerDetected() && !currentState.Equals(EnemyState.Chase))
         {
-            isChasing = true;
+            currentState = EnemyState.Chase;
         }
-        if (isChasing)
-        {
-            if (!hasWeapon)
-            {
-                MoveTowards(targetWeapon.transform.position, chaseSpeed);
 
-                if (Vector3.Distance(transform.position, targetWeapon.transform.position) < 5f)
+        switch(currentState)
+        {
+            case EnemyState.Chase:
+                if (!hasWeapon)
                 {
                     GrabWeapon();
                 }
-            }
-            else // Weapon is wielded, try to catch player
-            {
-                HandleChaseBehavior();
-            }
-        }
-        else
-        {
-/*            isChasing = false;
-
-            if (!hasWeapon)
-            {
+                else // Weapon is wielded, try to catch player
+                {
+                    ChasePlayer();
+                }
+                break;
+            case EnemyState.Confused:
+                if (!isHandlingConfused)
+                {
+                    isHandlingConfused = true;
+                    StartCoroutine(HandleConfused());
+                }
+                break;
+            case EnemyState.Idle:
                 Roam();
-            }
-            else
-            {
-                HandleIdleBehavior();
-            }*/
+                break;
         }
     }
 
+    /// <summary>
+    /// If player is within enemy line of sight (within 180 degrees in front of enemy), return true.
+    /// </summary>
+    /// <returns></returns>
     protected virtual bool PlayerDetected()
     {
-        return Vector3.Distance(transform.position, player.position) <= detectionRadius;
+        if (Vector3.Distance(transform.position, player.position) > detectionRadius)
+            return false;
+
+        Vector3 directionToPlayer = (player.position - eyePoint.position).normalized;
+
+        // Horizontal angle check
+        float horizontalAngle = Vector3.Angle(new Vector3(eyePoint.forward.x, 0, eyePoint.forward.z), new Vector3(directionToPlayer.x, 0, directionToPlayer.z));
+        if (horizontalAngle > 90f)
+            return false;
+
+        // Vertical angle check (up to 45 degrees above forward, no limit below forward)
+        float verticalAngle = Vector3.Angle(eyePoint.forward, directionToPlayer);
+        if (verticalAngle > 45f && directionToPlayer.y > eyePoint.forward.y)
+            return false;
+
+        // Check if there is a clear line of sight to the player
+        if (Physics.Raycast(eyePoint.position, directionToPlayer, out RaycastHit hit, detectionRadius))
+        {
+            if (hit.collider.CompareTag("Player"))
+            {
+                if(!hasWeapon)
+                {
+                    playerLastSeenPos = player.position;
+                }
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -75,7 +117,7 @@ public abstract class EnemyAI : MonoBehaviour
     /// using the weapon when the player is within range, or stepping backwards if the player is too close.
     /// Also ensures that the enemy and its equipped weapon are properly facing the player.
     /// </summary>
-    protected virtual void HandleChaseBehavior()
+    protected virtual void ChasePlayer()
     {
         if (player == null)
         {
@@ -86,6 +128,12 @@ public abstract class EnemyAI : MonoBehaviour
         if(targetWeapon == null)
         {
             Debug.LogError("Target weapon not specified!");
+            return;
+        }
+
+        if (!PlayerDetected())
+        {
+            currentState = EnemyState.Confused;
             return;
         }
 
@@ -114,36 +162,75 @@ public abstract class EnemyAI : MonoBehaviour
         }
     }
 
-    protected virtual void HandleIdleBehavior()
+    /// <summary>
+    /// Patrol around specified patrol points. 
+    /// </summary>
+    protected virtual void Roam()
     {
-        // Default idle behavior (e.g., roaming between patrol points)
-    }
-
-    protected virtual void GrabWeapon()
-    {
-        if (targetWeapon != null)
+        if (patrolPoints == null || patrolPoints.Length == 0)
         {
-            hasWeapon = true;
-            targetWeapon.Equip(enemyGrabPoint);
+            Debug.LogWarning("No patrol points assigned!");
+            return;
+        }
+
+        Transform targetPoint = patrolPoints[currentPatrolIndex];
+        Vector3 targetPosition = targetPoint.position;
+        MoveTowards(targetPosition, roamSpeed);
+
+        // Only care about the xz distance between enemy and patrol point
+        Vector3 horizontalEnemyPosition = transform.position;
+        horizontalEnemyPosition.y = 0f;
+        targetPosition.y = 0f;
+
+        // Check if the enemy has reached the current patrol point
+        if (Vector3.Distance(horizontalEnemyPosition, targetPosition) < 1f)
+        {
+            // Move to the next patrol point in the array
+            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
         }
     }
 
-    protected virtual void StartRoaming()
+    /// <summary>
+    /// "Must have been the wind" behavior.
+    /// When either the enemy has lost the player, or got distracted by something and decided it's nothing,
+    /// stand in place (play looking around animation) for a few seconds (until looking around animation is over),
+    /// then go back to roaming.
+    /// </summary>
+    protected virtual IEnumerator HandleConfused()
     {
-        // Override this to implement roaming or patrol behavior
+        if (enemyGrabPoint != null)
+        {
+            enemyGrabPoint.localRotation = Quaternion.identity;
+        }
+        yield return new WaitForSeconds(3f);
+        currentState = EnemyState.Idle;
+        isHandlingConfused = false;
     }
 
-    protected virtual void Roam()
+    /// <summary>
+    /// If close enough to weapon, equips weapon. Otherwise, moves enemy towards weapon.
+    /// </summary>
+    protected virtual void GrabWeapon()
     {
-        // Override this for patrol logic
+        if (Vector3.Distance(transform.position, targetWeapon.transform.position) < 5f)
+        {
+            if (targetWeapon != null)
+            {
+                hasWeapon = true;
+                targetWeapon.Equip(enemyGrabPoint);
+                MoveTowards(playerLastSeenPos, chaseSpeed);
+            }
+        }
+        else
+        {
+            MoveTowards(targetWeapon.transform.position, chaseSpeed);
+        }
     }
 
     protected virtual void MoveTowards(Vector3 target, float speed)
     {
-        Vector3 direction = (target - transform.position).normalized;
-        transform.position += direction * speed * Time.deltaTime;
-
-        transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
+        agent.speed = speed;
+        agent.destination = target;
     }
 
     /// <summary>
