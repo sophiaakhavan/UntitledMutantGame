@@ -247,6 +247,9 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  walkableLayer:
+    serializedVersion: 2
+    m_Bits: 128
   groundCheckRadius: 0.3
   moveDirectionDelay: 0.2
   rollIntensity: 45

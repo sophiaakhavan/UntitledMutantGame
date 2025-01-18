@@ -73,7 +73,13 @@ public abstract class Weapon : MonoBehaviour
         {
             return;
         }
+
         CastWeapon();
+
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        float animationLength = stateInfo.length;
+        // Reset casting after the animation duration
+        StartCoroutine(ResetIsCasting(animationLength));
     }
 
     /// <summary>
@@ -83,7 +89,14 @@ public abstract class Weapon : MonoBehaviour
     /// <returns></returns>
     protected virtual void CastWeapon()
     {
+        IsCasting = true;
         animator.SetTrigger("Base_Attack");
+    }
+
+    private IEnumerator ResetIsCasting(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        IsCasting = false;
     }
 
 }
