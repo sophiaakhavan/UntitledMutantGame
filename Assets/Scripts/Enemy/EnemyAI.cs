@@ -1,7 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using static UnityEngine.GraphicsBuffer;
 
 public enum EnemyState
 {
@@ -10,31 +13,58 @@ public enum EnemyState
     Chase
 }
 
+[RequireComponent(typeof(DetectionLevelSystem))]
 /// <summary>
 /// Handles all enemy movement and attack behavior
 /// </summary>
 public abstract class EnemyAI : MonoBehaviour
 {
-    [Header("General Settings")]
-    [SerializeField] private float roamSpeed = 4f;
-    [SerializeField] private float chaseSpeed = 6f;
-    [SerializeField] private float detectionRadius = 10f;
-    [SerializeField] private EnemyState currentState = EnemyState.Idle;
-    [SerializeField] private Transform[] patrolPoints;
-    [SerializeField] private Transform eyePoint; // Where enemy's eyes are for player detection calculation
-
-    [Header("Weapon Settings")]
-    [SerializeField] private GameObject targetWeaponObject;
-    [SerializeField] private Transform enemyGrabPoint;
+    public Vector3 EyeLocation => eyePoint.position;
+    public Vector3 EyeDirection => eyePoint.forward;
+    public float VisionConeAngle => visionConeAngle;
+    public float VisionConeRange => visionConeRange;
+    public Color VisionConeColor => visionConeColor;
+    public float HearingRange => hearingRange;
+    public Color HearingRangeColor => hearingRangeColor;
+    public float ProximityDetectionRange => proximityDetectionRange;
+    public Color ProximityDetectionColor => proximityRangeColor;
+    public float CosVisionConeAngle { get; private set; } = 0f;
 
     protected Transform player;
     protected bool hasWeapon = false;
 
-    private Weapon targetWeapon;
-    private NavMeshAgent agent;
-    private int currentPatrolIndex = 0;
-    private bool isHandlingConfused = false;
-    private Vector3 playerLastSeenPos;
+    [SerializeField] float roamSpeed = 4f;
+    [SerializeField] float chaseSpeed = 6f;
+    [SerializeField] EnemyState currentState = EnemyState.Idle;
+    [SerializeField] Transform[] patrolPoints;
+    [SerializeField] Transform eyePoint; // Where enemy's eyes are for player detection calculation
+    [SerializeField] TextMeshProUGUI feedbackDisplay;
+    [SerializeField] float visionConeAngle = 60f;
+    [SerializeField] float visionConeRange = 30f;
+    [SerializeField] Color visionConeColor = new Color(1f, 0f, 0f, 0.25f);
+    [SerializeField] float hearingRange = 20f;
+    [SerializeField] Color hearingRangeColor = new Color(1f, 1f, 0f, 0.25f);
+    [SerializeField] float proximityDetectionRange = 3f;
+    [SerializeField] Color proximityRangeColor = new Color(1f, 1f, 1f, 0.25f);
+
+    [Header("Weapon Settings")]
+    [SerializeField] GameObject targetWeaponObject;
+    [SerializeField] Transform enemyGrabPoint;
+
+
+    Weapon targetWeapon;
+    NavMeshAgent agent;
+    int currentPatrolIndex = 0;
+    bool isHandlingConfused = false;
+    Vector3 playerLastSeenPos;
+
+    DetectionLevelSystem Detection;
+
+    void Awake()
+    {
+        CosVisionConeAngle = Mathf.Cos(VisionConeAngle * Mathf.Deg2Rad);
+        Detection = GetComponent<DetectionLevelSystem>();
+    }
 
     protected virtual void Start()
     {
@@ -75,39 +105,84 @@ public abstract class EnemyAI : MonoBehaviour
         }
     }
 
+    public void ReportCanSee(DetectableTarget seen)
+    {
+        Detection.ReportCanSee(seen);
+    }
+
+    public void ReportCanHear(GameObject source, Vector3 location, EHeardSoundCategory category, float intensity)
+    {
+        Detection.ReportCanHear(source, location, category, intensity);
+    }
+
+    public void ReportInProximity(DetectableTarget target)
+    {
+        Detection.ReportInProximity(target);
+    }
+
+    public void OnSuspicious()
+    {
+        feedbackDisplay.text = "I hear you";
+    }
+
+    public void OnDetected(GameObject target)
+    {
+        feedbackDisplay.text = "I see you " + target.gameObject.name;
+    }
+
+    public void OnFullyDetected(GameObject target)
+    {
+        feedbackDisplay.text = "Charge! " + target.gameObject.name;
+    }
+
+    public void OnLostDetect(GameObject target)
+    {
+        feedbackDisplay.text = "Where are you " + target.gameObject.name;
+    }
+
+    public void OnLostSuspicion()
+    {
+        feedbackDisplay.text = "Where did you go";
+    }
+
+    public void OnFullyLost()
+    {
+        feedbackDisplay.text = "Must be nothing";
+    }
+
     /// <summary>
     /// If player is within enemy line of sight (within 180 degrees in front of enemy), return true.
     /// </summary>
     /// <returns></returns>
     protected virtual bool PlayerDetected()
     {
-        if (Vector3.Distance(transform.position, player.position) > detectionRadius)
-            return false;
+        //if (Vector3.Distance(transform.position, player.position) > detectionRadius)
+        //    return false;
 
-        Vector3 directionToPlayer = (player.position - eyePoint.position).normalized;
+        //Vector3 directionToPlayer = (player.position - eyePoint.position).normalized;
 
-        // Horizontal angle check
-        float horizontalAngle = Vector3.Angle(new Vector3(eyePoint.forward.x, 0, eyePoint.forward.z), new Vector3(directionToPlayer.x, 0, directionToPlayer.z));
-        if (horizontalAngle > 90f)
-            return false;
+        //// Horizontal angle check
+        //float horizontalAngle = Vector3.Angle(new Vector3(eyePoint.forward.x, 0, eyePoint.forward.z), new Vector3(directionToPlayer.x, 0, directionToPlayer.z));
+        //if (horizontalAngle > 90f)
+        //    return false;
 
-        // Vertical angle check (up to 45 degrees above forward, no limit below forward)
-        float verticalAngle = Vector3.Angle(eyePoint.forward, directionToPlayer);
-        if (verticalAngle > 45f && directionToPlayer.y > eyePoint.forward.y)
-            return false;
+        //// Vertical angle check (up to 45 degrees above forward, no limit below forward)
+        //float verticalAngle = Vector3.Angle(eyePoint.forward, directionToPlayer);
+        //if (verticalAngle > 45f && directionToPlayer.y > eyePoint.forward.y)
+        //    return false;
 
-        // Check if there is a clear line of sight to the player
-        if (Physics.Raycast(eyePoint.position, directionToPlayer, out RaycastHit hit, detectionRadius))
-        {
-            if (hit.collider.CompareTag("Player"))
-            {
-                if(!hasWeapon)
-                {
-                    playerLastSeenPos = player.position;
-                }
-                return true;
-            }
-        }
+        //// Check if there is a clear line of sight to the player
+        //if (Physics.Raycast(eyePoint.position, directionToPlayer, out RaycastHit hit, detectionRadius))
+        //{
+        //    if (hit.collider.CompareTag("Player"))
+        //    {
+        //        if(!hasWeapon)
+        //        {
+        //            playerLastSeenPos = player.position;
+        //        }
+        //        return true;
+        //    }
+        //}
 
         return false;
     }
@@ -251,3 +326,4 @@ public abstract class EnemyAI : MonoBehaviour
         transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
     }
 }
+
