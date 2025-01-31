@@ -37,7 +37,13 @@ public class VisionSensor : MonoBehaviour
             if(Vector3.Dot(enemyToTarget, enemyAI.EyeDirection) < enemyAI.CosVisionConeAngle)
                 continue;
 
-            // Raycast
+            // Only see a non-player detectable target if it's moving
+            if(!candidateTarget.gameObject.CompareTag("Player") && !candidateTarget.IsInMotion)
+            {
+                continue;
+            }
+
+            // Candidate is in range, within vision cone -- Raycast
             RaycastHit hitResult;
             if(Physics.Raycast(enemyAI.EyeLocation, enemyToTarget, out hitResult, 
                 enemyAI.VisionConeRange, detectionMask, QueryTriggerInteraction.Collide))

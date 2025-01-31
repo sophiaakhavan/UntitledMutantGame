@@ -8054,12 +8054,20 @@ PrefabInstance:
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
+      propertyPath: hearingRange
+      value: 17.58
+      objectReference: {fileID: 0}
+    - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
       propertyPath: detectionRadius
       value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
+      propertyPath: visionConeAngle
+      value: 72.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
       propertyPath: visionConeRange
-      value: 13.18
+      value: 41.4
       objectReference: {fileID: 0}
     - target: {fileID: 2677813138486281498, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
       propertyPath: targetWeaponObject
@@ -8081,6 +8089,10 @@ PrefabInstance:
       propertyPath: patrolPoints.Array.data[2]
       value: 
       objectReference: {fileID: 308909323}
+    - target: {fileID: 5285094960831088534, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
+      propertyPath: detectionDecayRate
+      value: 0.25
+      objectReference: {fileID: 0}
     - target: {fileID: 8514197848735801875, guid: f001d5084f4d02d4d834707efe8881ca, type: 3}
       propertyPath: m_Mesh
       value: 

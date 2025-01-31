@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
@@ -8,9 +9,11 @@ using static UnityEngine.GraphicsBuffer;
 
 public enum EnemyState
 {
-    Idle,
-    Confused,
-    Chase
+    Idle, // Roam
+    Confused, // Paused in place, contemplating (no target)
+    Suspicious, // Haven't found a target, looking around
+    Detected, // Face the target
+    Chase // Chase target (only if target is player)
 }
 
 [RequireComponent(typeof(DetectionLevelSystem))]
@@ -34,13 +37,13 @@ public abstract class EnemyAI : MonoBehaviour
     protected bool hasWeapon = false;
 
     [SerializeField] float roamSpeed = 4f;
-    [SerializeField] float chaseSpeed = 6f;
+    [SerializeField] float chaseSpeed = 8f;
     [SerializeField] EnemyState currentState = EnemyState.Idle;
     [SerializeField] Transform[] patrolPoints;
     [SerializeField] Transform eyePoint; // Where enemy's eyes are for player detection calculation
     [SerializeField] TextMeshProUGUI feedbackDisplay;
     [SerializeField] float visionConeAngle = 60f;
-    [SerializeField] float visionConeRange = 30f;
+    [SerializeField] float visionConeRange = 14f;
     [SerializeField] Color visionConeColor = new Color(1f, 0f, 0f, 0.25f);
     [SerializeField] float hearingRange = 20f;
     [SerializeField] Color hearingRangeColor = new Color(1f, 1f, 0f, 0.25f);
@@ -55,10 +58,13 @@ public abstract class EnemyAI : MonoBehaviour
     Weapon targetWeapon;
     NavMeshAgent agent;
     int currentPatrolIndex = 0;
-    bool isHandlingConfused = false;
     Vector3 playerLastSeenPos;
 
+    GameObject currTarget; // Detectable Target
     DetectionLevelSystem Detection;
+
+    bool isGrabbingWeapon = false;
+    bool isPlayerSpotted = false; // True only if currently chasing or had been chasing before currently detected
 
     void Awake()
     {
@@ -75,29 +81,19 @@ public abstract class EnemyAI : MonoBehaviour
 
     protected virtual void Update()
     {
-        if(PlayerDetected() && !currentState.Equals(EnemyState.Chase))
-        {
-            currentState = EnemyState.Chase;
-        }
-
         switch(currentState)
         {
             case EnemyState.Chase:
-                if (!hasWeapon)
-                {
-                    GrabWeapon();
-                }
-                else // Weapon is wielded, try to catch player
-                {
-                    ChasePlayer();
-                }
+                HandleChase();
+                break;
+            case EnemyState.Detected:
+                HandleDetected();
+                break;
+            case EnemyState.Suspicious:
+                HandleSuspicious();
                 break;
             case EnemyState.Confused:
-                if (!isHandlingConfused)
-                {
-                    isHandlingConfused = true;
-                    StartCoroutine(HandleConfused());
-                }
+                HandleConfused();
                 break;
             case EnemyState.Idle:
                 Roam();
@@ -120,71 +116,115 @@ public abstract class EnemyAI : MonoBehaviour
         Detection.ReportInProximity(target);
     }
 
-    public void OnSuspicious()
+    public void OnFullyDetected(GameObject target)
     {
-        feedbackDisplay.text = "I hear you";
+        if (isGrabbingWeapon)
+            return;
+        isPlayerSpotted = true;
+        currTarget = target;
+        currentState = EnemyState.Chase;
     }
 
     public void OnDetected(GameObject target)
     {
-        feedbackDisplay.text = "I see you " + target.gameObject.name;
+        if (isGrabbingWeapon)
+            return;
+        currTarget = target;
+        currentState = EnemyState.Detected;
     }
 
-    public void OnFullyDetected(GameObject target)
+    public void OnSuspicious()
     {
-        feedbackDisplay.text = "Charge! " + target.gameObject.name;
+        if (isGrabbingWeapon)
+            return;
+        isPlayerSpotted = false;
+        currTarget = null;
+        currentState = EnemyState.Suspicious;
     }
 
-    public void OnLostDetect(GameObject target)
+    public void OnLostFullDetect(GameObject target)
     {
-        feedbackDisplay.text = "Where are you " + target.gameObject.name;
+        if (isGrabbingWeapon)
+            return;
+        currTarget = target;
+        currentState = EnemyState.Detected;
     }
 
     public void OnLostSuspicion()
     {
-        feedbackDisplay.text = "Where did you go";
+        if (isGrabbingWeapon)
+            return;
+        currTarget = null;
+        currentState = EnemyState.Confused;
+        
     }
 
     public void OnFullyLost()
     {
-        feedbackDisplay.text = "Must be nothing";
+        if (isGrabbingWeapon)
+            return;
+        currTarget = null;
+        currentState = EnemyState.Idle;
     }
 
     /// <summary>
-    /// If player is within enemy line of sight (within 180 degrees in front of enemy), return true.
+    /// If detected target is player, chase player
     /// </summary>
-    /// <returns></returns>
-    protected virtual bool PlayerDetected()
+    protected virtual void HandleChase()
     {
-        //if (Vector3.Distance(transform.position, player.position) > detectionRadius)
-        //    return false;
+        feedbackDisplay.text = "Chasing";
 
-        //Vector3 directionToPlayer = (player.position - eyePoint.position).normalized;
+        playerLastSeenPos = player.position;
 
-        //// Horizontal angle check
-        //float horizontalAngle = Vector3.Angle(new Vector3(eyePoint.forward.x, 0, eyePoint.forward.z), new Vector3(directionToPlayer.x, 0, directionToPlayer.z));
-        //if (horizontalAngle > 90f)
-        //    return false;
+        if (!hasWeapon)
+        {
+            if (!isGrabbingWeapon)
+            {
+                isGrabbingWeapon = true;
+            }
+            GrabWeapon();
+        }
+        else // Weapon is wielded, try to catch player
+        {
+            ChasePlayer();
+        }
+    }
 
-        //// Vertical angle check (up to 45 degrees above forward, no limit below forward)
-        //float verticalAngle = Vector3.Angle(eyePoint.forward, directionToPlayer);
-        //if (verticalAngle > 45f && directionToPlayer.y > eyePoint.forward.y)
-        //    return false;
+    protected virtual void HandleDetected()
+    {
+        feedbackDisplay.text = "Detected";
 
-        //// Check if there is a clear line of sight to the player
-        //if (Physics.Raycast(eyePoint.position, directionToPlayer, out RaycastHit hit, detectionRadius))
-        //{
-        //    if (hit.collider.CompareTag("Player"))
-        //    {
-        //        if(!hasWeapon)
-        //        {
-        //            playerLastSeenPos = player.position;
-        //        }
-        //        return true;
-        //    }
-        //}
+        if (currTarget.CompareTag("Player"))
+        {
+            // Had been chasing beforehand, so move to where player last was seen
+            if (isPlayerSpotted)
+            {
+                MoveTowards(playerLastSeenPos, roamSpeed);
+            }
+            // Hadn't been chasing beforehand, so just move to where suspected target is
+            else
+            {
+                MoveTowards(currTarget.transform.position, roamSpeed);
+            }
+        }
+        else // Non-player detectable target
+        {
+            MoveTowards(currTarget.transform.position, roamSpeed);
+        }
+    }
 
-        return false;
+    protected virtual void HandleSuspicious()
+    {
+        feedbackDisplay.text = "Suspicious";
+        agent.isStopped = true;
+        agent.ResetPath();
+    }
+
+    protected virtual void HandleConfused()
+    {
+        feedbackDisplay.text = "Confused";
+        agent.isStopped = true;
+        agent.ResetPath();
     }
 
     /// <summary>
@@ -206,15 +246,8 @@ public abstract class EnemyAI : MonoBehaviour
             return;
         }
 
-        if (!PlayerDetected())
-        {
-            currentState = EnemyState.Confused;
-            return;
-        }
-
         // Rotate enemy about the y axis to ensure that it is facing the player
-        Vector3 enemyToPlayer = (player.position - transform.position).normalized;
-        transform.forward = new Vector3(enemyToPlayer.x, transform.forward.y, enemyToPlayer.z);
+        FaceTarget(player.position);
 
         // Point the weapon at the player
         Vector3 weaponToPlayer = (player.position - targetWeapon.transform.position).normalized;
@@ -225,7 +258,9 @@ public abstract class EnemyAI : MonoBehaviour
 
         switch(rangeVal)
         {
-            case 0: // Player within range, use weapon
+            case 0: // Player within range, stop in track and use weapon
+                agent.isStopped = true;
+                agent.ResetPath();
                 targetWeapon.Use();
                 break;
             case 1: // Player too far, move towards player
@@ -242,6 +277,8 @@ public abstract class EnemyAI : MonoBehaviour
     /// </summary>
     protected virtual void Roam()
     {
+        feedbackDisplay.text = "Idle";
+
         if (patrolPoints == null || patrolPoints.Length == 0)
         {
             Debug.LogWarning("No patrol points assigned!");
@@ -266,23 +303,6 @@ public abstract class EnemyAI : MonoBehaviour
     }
 
     /// <summary>
-    /// "Must have been the wind" behavior.
-    /// When either the enemy has lost the player, or got distracted by something and decided it's nothing,
-    /// stand in place (play looking around animation) for a few seconds (until looking around animation is over),
-    /// then go back to roaming.
-    /// </summary>
-    protected virtual IEnumerator HandleConfused()
-    {
-        if (enemyGrabPoint != null)
-        {
-            enemyGrabPoint.localRotation = Quaternion.identity;
-        }
-        yield return new WaitForSeconds(3f);
-        currentState = EnemyState.Idle;
-        isHandlingConfused = false;
-    }
-
-    /// <summary>
     /// If close enough to weapon, equips weapon. Otherwise, moves enemy towards weapon.
     /// </summary>
     protected virtual void GrabWeapon()
@@ -292,7 +312,9 @@ public abstract class EnemyAI : MonoBehaviour
             if (targetWeapon != null)
             {
                 hasWeapon = true;
+                isGrabbingWeapon = false;
                 targetWeapon.Equip(enemyGrabPoint);
+                // Once weapon is equipped, head to where player was last seen
                 MoveTowards(playerLastSeenPos, chaseSpeed);
             }
         }
@@ -320,10 +342,16 @@ public abstract class EnemyAI : MonoBehaviour
         float distance = Vector3.Distance(transform.position, target);
         Vector3 newTargetPosition = transform.position + directionAwayFromTarget * distance * 2f;
 
-        Vector3 moveDirection = (newTargetPosition - transform.position).normalized;
-        transform.position += moveDirection * speed * Time.deltaTime;
+        agent.destination = newTargetPosition;
 
-        transform.LookAt(new Vector3(target.x, transform.position.y, target.z));
+        FaceTarget(target);
+    }
+
+    private void FaceTarget(Vector3 target)
+    {
+        // Turn to face the target
+        Vector3 enemyToTarget = (target - transform.position).normalized;
+        transform.forward = new Vector3(enemyToTarget.x, transform.forward.y, enemyToTarget.z);
     }
 }
 

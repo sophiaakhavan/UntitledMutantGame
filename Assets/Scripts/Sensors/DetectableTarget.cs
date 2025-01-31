@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class DetectableTarget : MonoBehaviour
 {
+    public bool IsInMotion;
+    private Vector3 prevPos;
 
     void Start()
     {
@@ -12,7 +14,9 @@ public class DetectableTarget : MonoBehaviour
 
     void Update()
     {
-        
+        IsInMotion = Vector3.Distance(prevPos, transform.position) > 0.01f;
+
+        prevPos = transform.position; // Update the previous position
     }
 
     private void OnDestroy()
@@ -22,4 +26,5 @@ public class DetectableTarget : MonoBehaviour
             DetectableTargetManager.Instance.Deregister(this);
         }
     }
+
 }

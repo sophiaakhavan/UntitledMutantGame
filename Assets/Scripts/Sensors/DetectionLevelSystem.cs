@@ -12,6 +12,7 @@ class TrackedTarget
                             // 0-1   = rough idea (no set location); 
                             // 1-2   = likely target (location)
                             // 2     = fully detected
+    public bool IsPlayer = false;
 
     public bool UpdateDetection(DetectableTarget target, Vector3 position, float detection, float minDetection)
     {
@@ -92,7 +93,7 @@ public class DetectionLevelSystem : MonoBehaviour
                 else
                 {
                     if (targets[targetGO].Detection >= 1f)
-                        enemyAI.OnLostDetect(targetGO);
+                        enemyAI.OnLostFullDetect(targetGO);
                     else
                         enemyAI.OnLostSuspicion();
                 }
@@ -108,13 +109,21 @@ public class DetectionLevelSystem : MonoBehaviour
     {
         // not in targets
         if (!targets.ContainsKey(targetGO))
+        {
             targets[targetGO] = new TrackedTarget();
+            targets[targetGO].IsPlayer = targetGO.CompareTag("Player");
+        }
 
         // update target detection
         if (targets[targetGO].UpdateDetection(target, position, detection, minDetection))
         {
             if (targets[targetGO].Detection >= 2f)
-                enemyAI.OnFullyDetected(targetGO);
+            {
+                if (targets[targetGO].IsPlayer)
+                    enemyAI.OnFullyDetected(targetGO);
+                else
+                    enemyAI.OnDetected(targetGO);
+            }
             else if (targets[targetGO].Detection >= 1f)
                 enemyAI.OnDetected(targetGO);
             else if (targets[targetGO].Detection >= 0f)
@@ -122,6 +131,10 @@ public class DetectionLevelSystem : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Notify the detection system of seen target and initate update to target's detection level.
+    /// </summary>
+    /// <param name="seen"></param>
     public void ReportCanSee(DetectableTarget seen)
     {
         // determine where the target is in the field of view
@@ -134,6 +147,13 @@ public class DetectionLevelSystem : MonoBehaviour
         UpdateDetectionLevel(seen.gameObject, seen, seen.transform.position, detection, visionMinimumDetection);
     }
 
+    /// <summary>
+    /// Notify the detection system of heard sound and initiate update to target's detection level.
+    /// </summary>
+    /// <param name="source"></param>
+    /// <param name="location"></param>
+    /// <param name="category"></param>
+    /// <param name="intensity"></param>
     public void ReportCanHear(GameObject source, Vector3 location, EHeardSoundCategory category, float intensity)
     {
         var detection = intensity * hearingDetectionBuildRate * Time.deltaTime;
@@ -141,6 +161,10 @@ public class DetectionLevelSystem : MonoBehaviour
         UpdateDetectionLevel(source, null, location, detection, hearingMinimumDetection);
     }
 
+    /// <summary>
+    /// Notify the detection system of target in close proximity and initiate update to target's detection level.
+    /// </summary>
+    /// <param name="target"></param>
     public void ReportInProximity(DetectableTarget target)
     {
         var detection = proximityDetectionBuildRate * Time.deltaTime;

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8486082142172262548}
   - component: {fileID: 3989521289225311870}
   - component: {fileID: 4756442276390859012}
+  - component: {fileID: -3203313431634247709}
   m_Layer: 3
   m_Name: GrabbableBlock
   m_TagString: GrabbableObject
@@ -74,6 +75,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lerpSpeed: 15
+--- !u!114 &-3203313431634247709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4154467570980085591}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 100f345b80f84e94ab8641270ef24e8b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsInMotion: 0
 --- !u!1 &7788322523064249252
 GameObject:
   m_ObjectHideFlags: 0
