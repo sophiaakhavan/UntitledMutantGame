@@ -5,6 +5,7 @@ using UnityEngine;
 public class DetectableTarget : MonoBehaviour
 {
     public bool IsInMotion;
+    public float Radius;
     private Vector3 prevPos;
 
     void Start()

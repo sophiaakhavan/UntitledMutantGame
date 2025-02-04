@@ -199,22 +199,14 @@ public abstract class EnemyAI : MonoBehaviour
     {
         feedbackDisplay.text = "Detected";
 
-        if (currTarget.CompareTag("Player"))
+        if (currTarget.CompareTag("Player") && isPlayerSpotted)
         {
             // Had been chasing beforehand, so move to where player last was seen
-            if (isPlayerSpotted)
-            {
-                MoveTowards(playerLastSeenPos, roamSpeed);
-            }
-            // Hadn't been chasing beforehand, so just move to where suspected target is
-            else
-            {
-                MoveTowards(currTarget.transform.position, roamSpeed);
-            }
+            MoveTowards(playerLastSeenPos, roamSpeed);
         }
-        else // Non-player detectable target
+        else // Non-player detectable target or hadn't been chasing player beforehand
         {
-            MoveTowards(currTarget.transform.position, roamSpeed);
+            MoveTowards(currTarget.transform.position, roamSpeed, currTarget.GetComponentInChildren<DetectableTarget>().Radius);
         }
     }
 
@@ -269,7 +261,7 @@ public abstract class EnemyAI : MonoBehaviour
                 targetWeapon.Use();
                 break;
             case 1: // Player too far, move towards player
-                MoveTowards(player.position, chaseSpeed);
+                MoveTowards(player.position, chaseSpeed, currTarget.GetComponentInChildren<DetectableTarget>().Radius);
                 break;
             case -1: // Player too close, Step backward from player
                 MoveAwayFrom(player.position, chaseSpeed);
@@ -329,10 +321,28 @@ public abstract class EnemyAI : MonoBehaviour
         }
     }
 
-    protected virtual void MoveTowards(Vector3 target, float speed)
+    /// <summary>
+    /// Moves enemy agent towards a target at a specified speed.
+    /// Make sure to specify a radius for detectable targets (which is specified in the DetectableTarget Radius field)
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="speed"></param>
+    /// <param name="targetRadius"></param>
+    protected virtual void MoveTowards(Vector3 target, float speed, float targetRadius = 0.0f)
     {
+        // For detectable targets, rather than moving toward the center of the target, stop at its radius
+        Vector3 directionToTarget = (target - agent.transform.position).normalized;
+        Vector3 stopPoint = target - (directionToTarget * targetRadius);
+
         agent.speed = speed;
-        agent.destination = target;
+        if (targetRadius > 0.0f)
+        {
+            agent.destination = stopPoint;
+        }
+        else
+        {
+            agent.destination = target;
+        }
     }
 
     /// <summary>
