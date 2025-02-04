@@ -4,6 +4,7 @@ using UnityEngine;
 
 class TrackedTarget
 {
+    public GameObject GO;
     public DetectableTarget Detectable;
     public Vector3 RawPosition;
 
@@ -70,7 +71,7 @@ public class DetectionLevelSystem : MonoBehaviour
     [SerializeField] float detectionDecayDelay = 0.1f;
     [SerializeField] float detectionDecayRate = 0.1f;
 
-    Dictionary<GameObject, TrackedTarget> targets = new Dictionary<GameObject, TrackedTarget>();
+    TrackedTarget trackedTarget;
     EnemyAI enemyAI;
 
     void Start()
@@ -80,53 +81,55 @@ public class DetectionLevelSystem : MonoBehaviour
 
     void Update()
     {
-        List<GameObject> toCleanup = new List<GameObject>();
-        foreach (var targetGO in targets.Keys)
+        if (trackedTarget != null && trackedTarget.DecayDetection(detectionDecayDelay, detectionDecayRate * Time.deltaTime))
         {
-            if (targets[targetGO].DecayDetection(detectionDecayDelay, detectionDecayRate * Time.deltaTime))
+            if (trackedTarget.Detection <= 0f)
             {
-                if (targets[targetGO].Detection <= 0f)
-                {
-                    enemyAI.OnFullyLost();
-                    toCleanup.Add(targetGO);
-                }
+                enemyAI.OnFullyLost();
+                trackedTarget = null;
+            }
+            else
+            {
+                if (trackedTarget.Detection >= 1f)
+                    enemyAI.OnLostFullDetect(trackedTarget.GO);
                 else
-                {
-                    if (targets[targetGO].Detection >= 1f)
-                        enemyAI.OnLostFullDetect(targetGO);
-                    else
-                        enemyAI.OnLostSuspicion();
-                }
+                    enemyAI.OnLostSuspicion();
             }
         }
-
-        // cleanup targets that are no longer detected
-        foreach (var target in toCleanup)
-            targets.Remove(target);
     }
 
     void UpdateDetectionLevel(GameObject targetGO, DetectableTarget target, Vector3 position, float detection, float minDetection)
     {
-        // not in targets
-        if (!targets.ContainsKey(targetGO))
+        // If not the same as currently tracked target
+        if (trackedTarget == null || trackedTarget.GO != targetGO)
         {
-            targets[targetGO] = new TrackedTarget();
-            targets[targetGO].IsPlayer = targetGO.CompareTag("Player");
+            // If currently tracked target is player, then ignore this new one and return
+            if(trackedTarget != null && trackedTarget.IsPlayer)
+            {
+                return;
+            }
+
+            trackedTarget = new TrackedTarget
+            {
+                GO = targetGO,
+                IsPlayer = targetGO != null && targetGO.CompareTag("Player")
+            };
         }
 
         // update target detection
-        if (targets[targetGO].UpdateDetection(target, position, detection, minDetection))
+        if (trackedTarget.UpdateDetection(target, position, detection, minDetection))
         {
-            if (targets[targetGO].Detection >= 2f)
+            if (trackedTarget.Detection >= 2f)
             {
-                if (targets[targetGO].IsPlayer)
+                // Only fully detect if target is player
+                if (trackedTarget.IsPlayer)
                     enemyAI.OnFullyDetected(targetGO);
                 else
                     enemyAI.OnDetected(targetGO);
             }
-            else if (targets[targetGO].Detection >= 1f)
+            else if (trackedTarget.Detection >= 1f)
                 enemyAI.OnDetected(targetGO);
-            else if (targets[targetGO].Detection >= 0f)
+            else if (trackedTarget.Detection >= 0f)
                 enemyAI.OnSuspicious();
         }
     }

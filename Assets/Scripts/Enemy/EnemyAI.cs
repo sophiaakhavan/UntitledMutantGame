@@ -167,6 +167,11 @@ public abstract class EnemyAI : MonoBehaviour
         currentState = EnemyState.Idle;
     }
 
+    public bool IsDetectingPlayer()
+    {
+        return currTarget != null && currTarget.CompareTag("Player");
+    }
+
     /// <summary>
     /// If detected target is player, chase player
     /// </summary>
