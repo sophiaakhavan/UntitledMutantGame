@@ -64,9 +64,6 @@ public class DetectionLevelSystem : MonoBehaviour
     [SerializeField] float hearingMinimumDetection = 0f;
     [SerializeField] float hearingDetectionBuildRate = 5f;
 
-    [SerializeField] float proximityMinimumDetection = 0f;
-    [SerializeField] float proximityDetectionBuildRate = 1f;
-
     // How rapidly the AI forgets about a target
     [SerializeField] float detectionDecayDelay = 0.1f;
     [SerializeField] float detectionDecayRate = 0.1f;
@@ -162,16 +159,5 @@ public class DetectionLevelSystem : MonoBehaviour
         var detection = intensity * hearingDetectionBuildRate * Time.deltaTime;
 
         UpdateDetectionLevel(source, null, location, detection, hearingMinimumDetection);
-    }
-
-    /// <summary>
-    /// Notify the detection system of target in close proximity and initiate update to target's detection level.
-    /// </summary>
-    /// <param name="target"></param>
-    public void ReportInProximity(DetectableTarget target)
-    {
-        var detection = proximityDetectionBuildRate * Time.deltaTime;
-
-        UpdateDetectionLevel(target.gameObject, target, target.transform.position, detection, proximityMinimumDetection);
     }
 }

@@ -16,10 +16,6 @@ public class DefaultEnemy : EnemyAI
         {
             var ai = target as DefaultEnemy;
 
-            // draw the detectopm range
-            Handles.color = ai.ProximityDetectionColor;
-            Handles.DrawSolidDisc(ai.transform.position, Vector3.up, ai.ProximityDetectionRange);
-
             // draw the hearing range
             Handles.color = ai.HearingRangeColor;
             Handles.DrawSolidDisc(ai.transform.position, Vector3.up, ai.HearingRange);

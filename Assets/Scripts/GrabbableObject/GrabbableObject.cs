@@ -29,6 +29,21 @@ public class GrabbableObject : MonoBehaviour
         rb.useGravity = true;
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if(collision.collider.gameObject.CompareTag("Player"))
+        {
+            return;
+        }
+        if(collision.collider.gameObject.transform.root.CompareTag("Enemy"))
+        {
+            //TODO: define behavior if player throws object at enemy
+            //      note: no longer considered "thrown by player" once it reaches 0 velocity after being let go by player
+            return;
+        }
+        HearingManager.Instance.OnSoundEmitted(gameObject, transform.position, EHeardSoundCategory.EObjectCollision, 5f);
+    }
+
     private void FixedUpdate()
     {
         if(grabPoint != null)

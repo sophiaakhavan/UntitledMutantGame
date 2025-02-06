@@ -29,8 +29,6 @@ public abstract class EnemyAI : MonoBehaviour
     public Color VisionConeColor => visionConeColor;
     public float HearingRange => hearingRange;
     public Color HearingRangeColor => hearingRangeColor;
-    public float ProximityDetectionRange => proximityDetectionRange;
-    public Color ProximityDetectionColor => proximityRangeColor;
     public float CosVisionConeAngle { get; private set; } = 0f;
 
     protected Transform player;
@@ -47,8 +45,6 @@ public abstract class EnemyAI : MonoBehaviour
     [SerializeField] Color visionConeColor = new Color(1f, 0f, 0f, 0.25f);
     [SerializeField] float hearingRange = 20f;
     [SerializeField] Color hearingRangeColor = new Color(1f, 1f, 0f, 0.25f);
-    [SerializeField] float proximityDetectionRange = 3f;
-    [SerializeField] Color proximityRangeColor = new Color(1f, 1f, 1f, 0.25f);
 
     [Header("Weapon Settings")]
     [SerializeField] GameObject targetWeaponObject;
@@ -109,11 +105,6 @@ public abstract class EnemyAI : MonoBehaviour
     public void ReportCanHear(GameObject source, Vector3 location, EHeardSoundCategory category, float intensity)
     {
         Detection.ReportCanHear(source, location, category, intensity);
-    }
-
-    public void ReportInProximity(DetectableTarget target)
-    {
-        Detection.ReportInProximity(target);
     }
 
     public void OnFullyDetected(GameObject target)
